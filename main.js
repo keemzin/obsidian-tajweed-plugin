@@ -74,7 +74,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             defaultAudio: false,
             defaultTranslation: false,
             defaultTransliteration: false,
-            defaultRepeatCount: 1,
+            defaultRepeatCount: 5,
             showVerseNumbers: true,
             lineSpacing: 1.8
         };
@@ -85,12 +85,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         // Add settings tab
         this.addSettingTab(new QuranTajweedSettingTab(this.app, this));
 
-        // Add CSS for Uthmanic Hafs font
-        this.addStyles();
-
         // Register markdown post processor for code blocks with language "quran"
         this.registerMarkdownCodeBlockProcessor('quran', async (source, el, ctx) => {
-            console.log('📖 Processing quran code block:', source);
             // Parse optional parameters: ```quran reciter="ar.alafasy" audio="on" translation="on" transliteration="on"
             const reciter = this.parseReciterFromSource(source);
             const audioEnabled = this.parseAudioFromSource(source);
@@ -102,13 +98,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         // Register markdown post processor for code blocks with language "tajweed"
         this.registerMarkdownCodeBlockProcessor('tajweed', async (source, el, ctx) => {
-            console.log('📖 Processing tajweed code block:', source);
             await this.renderQuranWithTajweed(source, el, false, this.settings.reciter, false);
         });
 
         // Register markdown post processor for inline words with language "word"
         this.registerMarkdownCodeBlockProcessor('word', async (source, el, ctx) => {
-            console.log('📝 Processing word code block:', source);
             await this.renderQuranWithTajweed(source, el, true, this.settings.reciter, false);
         });
 
@@ -119,7 +113,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         // Parse: ```quran reciter="ar.alafasy"
         const match = source.match(/reciter="([^"]+)"/);
         if (match) {
-            console.log('🎵 Custom reciter:', match[1]);
             return match[1];
         }
         return this.settings.reciter;
@@ -129,7 +122,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         // Parse: ```quran audio="on" or audio="off"
         const match = source.match(/audio="(on|off)"/i);
         if (match) {
-            console.log('🔊 Audio setting:', match[1]);
             return match[1].toLowerCase() === 'on';
         }
         // Default: use user setting
@@ -140,7 +132,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         // Parse: ```quran translation="on" or translation="off"
         const match = source.match(/translation="(on|off)"/i);
         if (match) {
-            console.log('📚 Translation setting:', match[1]);
             return match[1].toLowerCase() === 'on';
         }
         // Default: use user setting
@@ -151,7 +142,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         // Parse: ```quran transliteration="on" or transliteration="off"
         const match = source.match(/transliteration="(on|off)"/i);
         if (match) {
-            console.log('🔤 Transliteration setting:', match[1]);
             return match[1].toLowerCase() === 'on';
         }
         // Default: use user setting
@@ -185,7 +175,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
     }
 
     snapToRepeatOption(val) {
-        const options = [1, 5, 10, 15, 20];
+        const options = [5, 10, 15, 20, 25, 30];
         return options.reduce((a, b) => Math.abs(b - val) < Math.abs(a - val) ? b : a);
     }
 
@@ -198,7 +188,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.settings.defaultAudio = saved.defaultAudio || false;
             this.settings.defaultTranslation = saved.defaultTranslation || false;
             this.settings.defaultTransliteration = saved.defaultTransliteration || false;
-            this.settings.defaultRepeatCount = this.snapToRepeatOption(saved.defaultRepeatCount || 1);
+            this.settings.defaultRepeatCount = this.snapToRepeatOption(saved.defaultRepeatCount || 5);
             this.settings.showVerseNumbers = saved.showVerseNumbers !== undefined ? saved.showVerseNumbers : true;
             this.settings.lineSpacing = saved.lineSpacing !== undefined ? saved.lineSpacing : 1.8;
         }
@@ -218,380 +208,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         });
     }
 
-    addStyles() {
-        const style = document.createElement('style');
-        style.id = 'quran-tajweed-styles';
-        style.textContent = `
-            @font-face {
-                font-family: 'UthmanicHafs';
-                src: url('https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2') format('woff2');
-                font-display: swap;
-            }
 
-            /* Light theme styles */
-            .quran-tajweed-container {
-                font-family: 'UthmanicHafs', 'Amiri Quran', serif;
-                direction: rtl;
-                text-align: right;
-                font-size: var(--quran-font-size, 1.8em);
-                line-height: var(--quran-line-height, 1.8);
-                padding: 8px 6px;
-                background: var(--background-secondary);
-                border-radius: 8px;
-                border-right: 3px solid var(--interactive-accent);
-                margin: 10px 0;
-            }
-
-            .quran-verse {
-                margin-bottom: 6px;
-                padding: 6px 4px;
-                background: var(--background-primary);
-                border-radius: 6px;
-            }
-
-            .quran-verse:last-child {
-                margin-bottom: 0;
-            }
-
-            /* Text container - keeps text and verse number inline */
-            .quran-text-container {
-                display: flex;
-                align-items: center;
-                justify-content: flex-end;
-                gap: 8px;
-            }
-
-            /* Audio player styles */
-            .quran-audio-container {
-                margin-top: 8px;
-                margin-bottom: 4px;
-            }
-
-            .quran-audio-player {
-                width: 100%;
-                height: 32px;
-            }
-
-            /* Range playback controls */
-            .quran-range-controls {
-                margin-bottom: 10px;
-                padding: 6px 8px;
-                background: var(--background-primary-alt);
-                border-radius: 5px;
-                border: 1px solid var(--background-modifier-border);
-            }
-
-            .quran-control-bar {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                flex-wrap: wrap;
-                direction: ltr;
-            }
-
-            .quran-play-btn,
-            .quran-stop-btn {
-                width: 28px;
-                height: 28px;
-                padding: 0;
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 50%;
-                background: var(--interactive-normal);
-                color: var(--text-normal);
-                cursor: pointer;
-                transition: all 0.2s ease;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                line-height: 1;
-                flex-shrink: 0;
-            }
-
-            .quran-play-btn:hover,
-            .quran-stop-btn:hover {
-                background: var(--interactive-hover);
-                border-color: var(--interactive-accent);
-            }
-
-            .quran-play-btn {
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
-            }
-
-            .quran-play-btn svg,
-            .quran-stop-btn svg {
-                width: 14px;
-                height: 14px;
-            }
-
-            .quran-repeat-controls {
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                margin-left: auto;
-            }
-
-            .quran-repeat-label {
-                font-size: 0.6em;
-                color: var(--text-muted);
-                font-family: Arial, sans-serif;
-            }
-
-            .quran-repeat-select {
-                padding: 2px 6px;
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 4px;
-                background: var(--background-primary);
-                color: var(--text-normal);
-                font-size: 0.6em;
-                font-family: Arial, sans-serif;
-                cursor: pointer;
-            }
-
-            .quran-repeat-display {
-                font-size: 0.6em;
-                color: var(--interactive-accent);
-                font-weight: 600;
-                font-family: Arial, sans-serif;
-                min-width: 35px;
-            }
-
-            /* Toggle bar */
-            .quran-toggle-bar {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                margin-bottom: 10px;
-                padding-bottom: 6px;
-                border-bottom: 1px solid var(--background-modifier-border);
-                direction: ltr;
-                flex-wrap: wrap;
-            }
-
-            .quran-toggle-chip {
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-                padding: 3px 10px;
-                border-radius: 14px;
-                border: 1px solid var(--background-modifier-border);
-                cursor: pointer;
-                font-size: 0.6em;
-                font-family: Arial, sans-serif;
-                transition: all 0.15s ease;
-                background: var(--background-primary-alt);
-                color: var(--text-muted);
-                user-select: none;
-                line-height: 1.4;
-            }
-
-            .quran-toggle-chip:hover {
-                border-color: var(--interactive-accent);
-                opacity: 0.85;
-            }
-
-            .quran-toggle-chip.active {
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
-                border-color: var(--interactive-accent);
-            }
-
-            /* Active verse highlighting */
-            .quran-verse-active {
-                background: var(--background-modifier-hover) !important;
-                border-left: 3px solid var(--interactive-accent);
-                transition: all 0.3s ease;
-                scroll-margin: 80px;
-            }
-
-            .verse-number {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
-                border-radius: 50%;
-                min-width: 28px;
-                height: 28px;
-                line-height: 28px;
-                text-align: center;
-                font-size: 0.6em;
-                font-family: Arial, sans-serif;
-                flex-shrink: 0;
-                margin: 0;
-            }
-
-            /* Translation styles */
-            .quran-translation {
-                margin-top: 8px;
-                padding-top: 8px;
-                border-top: 1px solid var(--background-modifier-border);
-                direction: ltr;
-                text-align: left;
-                font-family: Arial, sans-serif;
-                font-size: 0.7em;
-                line-height: 1.6;
-                color: var(--text-muted);
-            }
-
-            .quran-translation-prefix {
-                font-weight: 600;
-                color: var(--text-normal);
-                margin-right: 4px;
-            }
-
-            /* Transliteration styles */
-            .quran-transliteration {
-                margin-top: 6px;
-                padding-top: 6px;
-                border-top: 1px solid var(--background-modifier-border);
-                direction: ltr;
-                text-align: left;
-                font-family: Arial, sans-serif;
-                font-size: 0.75em;
-                line-height: 1.6;
-                color: var(--text-muted);
-                font-style: italic;
-            }
-
-            .quran-transliteration-prefix {
-                font-weight: 600;
-                color: var(--text-normal);
-                margin-right: 4px;
-            }
-
-            /* Inline word style - for single words in tables */
-            .quran-word-inline {
-                font-family: 'UthmanicHafs', 'Amiri Quran', serif;
-                direction: rtl;
-                display: inline-block;
-                font-size: 1.5em;
-            }
-
-            .quran-loading {
-                text-align: center;
-                padding: 15px;
-                color: var(--interactive-accent);
-                font-family: Arial, sans-serif;
-                font-size: 0.9em;
-            }
-
-            .quran-error {
-                text-align: center;
-                padding: 15px;
-                color: var(--text-error);
-                font-family: Arial, sans-serif;
-                font-size: 0.9em;
-            }
-
-            /* Tajweed colors - Light theme */
-            .theme-light .quran-tajweed-container .tajweed-ham_wasl,
-            .theme-light .quran-tajweed-container .tajweed-slnt {
-                color: #AAAAAA;
-            }
-            .theme-light .quran-tajweed-container .tajweed-madda_normal {
-                color: #537FFF;
-            }
-            .theme-light .quran-tajweed-container .tajweed-madda_permissible {
-                color: #4050FF;
-            }
-            .theme-light .quran-tajweed-container .tajweed-madda_necessary {
-                color: #000EBC;
-            }
-            .theme-light .quran-tajweed-container .tajweed-madda_obligatory {
-                color: #2144C1;
-            }
-            .theme-light .quran-tajweed-container .tajweed-qlq {
-                color: #DD0008;
-            }
-            .theme-light .quran-tajweed-container .tajweed-ikhf_shfw {
-                color: #D500B7;
-            }
-            .theme-light .quran-tajweed-container .tajweed-ikhf {
-                color: #9400A8;
-            }
-            .theme-light .quran-tajweed-container .tajweed-idghm_shfw {
-                color: #58B800;
-            }
-            .theme-light .quran-tajweed-container .tajweed-iqlb {
-                color: #26BFFD;
-            }
-            .theme-light .quran-tajweed-container .tajweed-idgh_ghn {
-                color: #169777;
-            }
-            .theme-light .quran-tajweed-container .tajweed-idgh_w_ghn {
-                color: #169200;
-            }
-            .theme-light .quran-tajweed-container .tajweed-idgh_mus {
-                color: #A1A1A1;
-            }
-            .theme-light .quran-tajweed-container .tajweed-ghn {
-                color: #FF7E1E;
-            }
-
-            /* Tajweed colors - Dark theme (brighter, more visible) */
-            .theme-dark .quran-tajweed-container .tajweed-ham_wasl,
-            .theme-dark .quran-tajweed-container .tajweed-slnt,
-            body.theme-dark .quran-tajweed-container .tajweed-ham_wasl,
-            body.theme-dark .quran-tajweed-container .tajweed-slnt {
-                color: #555555 !important;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-madda_normal,
-            body.theme-dark .quran-tajweed-container .tajweed-madda_normal {
-                color: #7BA3FF;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-madda_permissible,
-            body.theme-dark .quran-tajweed-container .tajweed-madda_permissible {
-                color: #6B7FFF;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-madda_necessary,
-            body.theme-dark .quran-tajweed-container .tajweed-madda_necessary {
-                color: #4D6FFF;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-madda_obligatory,
-            body.theme-dark .quran-tajweed-container .tajweed-madda_obligatory {
-                color: #5B7FE8;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-qlq,
-            body.theme-dark .quran-tajweed-container .tajweed-qlq {
-                color: #FF4D4D;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-ikhf_shfw,
-            body.theme-dark .quran-tajweed-container .tajweed-ikhf_shfw {
-                color: #FF5FD7;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-ikhf,
-            body.theme-dark .quran-tajweed-container .tajweed-ikhf {
-                color: #C850D8;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-idghm_shfw,
-            body.theme-dark .quran-tajweed-container .tajweed-idghm_shfw {
-                color: #7FD850;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-iqlb,
-            body.theme-dark .quran-tajweed-container .tajweed-iqlb {
-                color: #5FD7FF;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-idgh_ghn,
-            body.theme-dark .quran-tajweed-container .tajweed-idgh_ghn {
-                color: #4FC7A7;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-idgh_w_ghn,
-            body.theme-dark .quran-tajweed-container .tajweed-idgh_w_ghn {
-                color: #4FC250;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-idgh_mus,
-            body.theme-dark .quran-tajweed-container .tajweed-idgh_mus {
-                color: #C0C0C0;
-            }
-            .theme-dark .quran-tajweed-container .tajweed-ghn,
-            body.theme-dark .quran-tajweed-container .tajweed-ghn {
-                color: #FFA050;
-            }
-        `;
-        document.head.appendChild(style);
-        console.log('✅ Styles added with dark mode support');
-    }
 
     parseTajweed(text) {
         // Parse notation like [h:9421[ٱ] or [p[َا]
@@ -599,7 +216,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         return text.replace(regex, (match, rule, content) => {
             const className = RULE_MAP[rule];
             const color = TAJWEED_COLORS[className] || '#000000';
-            console.log(`🎨 Tajweed: ${rule} -> ${className} -> ${color} for "${content}"`);
             // Use class instead of inline style for theme support
             return `<span class="tajweed-${className}">${content}</span>`;
         });
@@ -614,7 +230,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const reciterName = reciterData ? reciterData.quranComName : reciter.replace('ar.', '');
         
         const url = `https://verses.quran.com/${reciterName}/mp3/${formattedKey}.mp3`;
-        console.log(`🔊 Audio URL: ${url}`);
         return url;
     }
 
@@ -657,11 +272,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             });
         });
 
-        // Log when audio loads successfully
-        audio.addEventListener('loadeddata', () => {
-            console.log(`✅ Audio loaded successfully: Surah ${surah}:${verse}`);
-        });
-
         // Auto-advance to next verse when current ends (for range playback)
         audio.addEventListener('ended', () => {
             if (!rangeControls || !rangeControls.isPlaying || !verseDiv) return;
@@ -679,11 +289,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     return;
                 }
                 nextAudio.play().catch(() => this.stopRange(rangeControls));
+                this.preloadNextAudio(rangeControls, nextIndex);
             } else {
                 rangeControls.repeatCount++;
                 if (rangeControls.repeatCount < rangeControls.maxRepeats) {
                     rangeControls.currentVerseIndex = 0;
-                    console.log(`🔄 Repeating range... (${rangeControls.repeatCount + 1}/${rangeControls.maxRepeats})`);
                     this.updateRepeatDisplay(rangeControls);
                     const firstVerseDiv = rangeControls.verseDivs[0];
                     this.highlightVerse(firstVerseDiv, true);
@@ -693,10 +303,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                         return;
                     }
                     firstAudio.play().catch(() => this.stopRange(rangeControls));
+                    this.preloadNextAudio(rangeControls, 0);
                 } else {
                     rangeControls.isPlaying = false;
                     this.updatePlayButton(rangeControls);
-                    console.log(`✅ Range playback completed (${rangeControls.maxRepeats} plays)`);
                 }
             }
         });
@@ -746,13 +356,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const repeatContainer = document.createElement('div');
         repeatContainer.className = 'quran-repeat-controls';
 
-        const repeatLabel = document.createElement('span');
-        repeatLabel.className = 'quran-repeat-label';
-        repeatLabel.textContent = 'Repeat';
-
         const repeatSelect = document.createElement('select');
         repeatSelect.className = 'quran-repeat-select';
-        [1, 5, 10, 15, 20].forEach(n => {
+        [5, 10, 15, 20, 25, 30].forEach(n => {
             const opt = document.createElement('option');
             opt.value = n;
             opt.textContent = `${n}x`;
@@ -770,13 +376,56 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         repeatDisplay.textContent = '';
         controls.repeatDisplay = repeatDisplay;
 
-        repeatContainer.appendChild(repeatLabel);
         repeatContainer.appendChild(repeatSelect);
         repeatContainer.appendChild(repeatDisplay);
+
+        const settingsBtn = document.createElement('button');
+        settingsBtn.className = 'quran-settings-btn';
+        settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+        settingsBtn.title = 'Quick settings';
+
+        const settingsPopover = document.createElement('div');
+        settingsPopover.className = 'quran-settings-popover';
+        settingsPopover.style.display = 'none';
+
+        const items = [
+            { key: 'translationEnabled', label: 'Translation' },
+            { key: 'transliterationEnabled', label: 'Transliteration' },
+            { key: 'audioEnabled', label: 'Audio' },
+        ];
+
+        items.forEach(({ key, label }) => {
+            const row = document.createElement('div');
+            row.className = 'quran-settings-row';
+            const state = container._quranState || {};
+            const isActive = state[key];
+            row.innerHTML = `<span>${label}</span><span class="quran-settings-toggle ${isActive ? 'on' : 'off'}"></span>`;
+            row.onclick = () => {
+                const st = container._quranState;
+                if (!st) return;
+                st[key] = !st[key];
+                row.querySelector('.quran-settings-toggle').className = `quran-settings-toggle ${st[key] ? 'on' : 'off'}`;
+                this.applyToggle(container, st, key);
+            };
+            settingsPopover.appendChild(row);
+        });
+
+        settingsBtn.onclick = (e) => {
+            e.stopPropagation();
+            const isVisible = settingsPopover.style.display !== 'none';
+            document.querySelectorAll('.quran-settings-popover').forEach(p => p.style.display = 'none');
+            settingsPopover.style.display = isVisible ? 'none' : 'block';
+        };
+
+        document.addEventListener('click', () => {
+            settingsPopover.style.display = 'none';
+        }, { capture: true });
 
         controlBar.appendChild(playBtn);
         controlBar.appendChild(stopBtn);
         controlBar.appendChild(repeatContainer);
+        controlBar.appendChild(settingsBtn);
+        controlsContainer.appendChild(settingsPopover);
 
         controlsContainer.appendChild(controlBar);
         // Insert controls after the toggle bar (or at the top if no toggle bar)
@@ -794,6 +443,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
     playRange(controls) {
         if (controls.isPlaying) return;
+        if (this.currentPlaying && this.currentPlaying !== controls) {
+            this.stopRange(this.currentPlaying);
+        }
+        this.currentPlaying = controls;
         
         controls.isPlaying = true;
         controls.currentVerseIndex = 0;
@@ -826,10 +479,24 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             controls.isPlaying = false;
             this.updatePlayButton(controls);
         });
+        this.preloadNextAudio(controls, 0);
+    }
+
+    preloadNextAudio(controls, currentIndex) {
+        const nextIndex = currentIndex + 1;
+        if (nextIndex >= controls.verseDivs.length) return;
+        const nextAudio = controls.verseDivs[nextIndex]?.querySelector('.quran-audio-player');
+        if (nextAudio && nextAudio.readyState < 2) {
+            nextAudio.preload = 'auto';
+            nextAudio.load();
+        }
     }
 
     stopRange(controls) {
         controls.isPlaying = false;
+        if (this.currentPlaying === controls) {
+            this.currentPlaying = null;
+        }
         this.updatePlayButton(controls);
 
         // Stop all audio players in the container
@@ -842,7 +509,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         // Remove all highlights
         container.querySelectorAll('.quran-verse').forEach(div => this.highlightVerse(div, false));
 
-        console.log('⏹️ Range playback stopped');
     }
 
     highlightVerse(verseDiv, isHighlighted) {
@@ -948,6 +614,27 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }
     }
 
+    fetchJson(url) {
+        return fetch(url).then(r => r.json());
+    }
+
+    getCache(key) {
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        } catch {
+            return null;
+        }
+    }
+
+    setCache(key, data) {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch {
+            // localStorage full or unavailable — ignore
+        }
+    }
+
     async renderQuranWithTajweed(source, el, isInlineWord = false, reciter = DEFAULT_RECITER, audioEnabled = false, translationEnabled = false, transliterationEnabled = false) {
         // For inline words, use simpler styling
         if (isInlineWord) {
@@ -967,143 +654,123 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const verseRef = this.extractVerseReference(source);
         
         if (verseRef) {
-            // It's a reference, fetch from API
             const surah = verseRef.surah;
             const startVerse = verseRef.startVerse;
             const endVerse = verseRef.endVerse;
 
-            console.log(`📥 Fetching Surah ${surah}, verses ${startVerse}-${endVerse}`);
+            const cacheKey = `quran-surah-${surah}`;
+            let cached = this.getCache(cacheKey);
 
+            if (!cached) {
                 const loading = container.createDiv({ cls: 'quran-loading' });
                 loading.textContent = 'Loading verses...';
 
                 try {
-                    // Fetch Arabic text with Tajweed
-                    const arabicResponse = await fetch(`https://api.alquran.cloud/v1/surah/${surah}/quran-tajweed`);
-                    const arabicData = await arabicResponse.json();
+                    const [arabicData, translationFetchData, transliterationFetchData] = await Promise.all([
+                        this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/quran-tajweed`),
+                        this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/en.sahih`).catch(e => {
+                            console.warn('⚠️ Translation fetch failed:', e);
+                            return null;
+                        }),
+                        this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/en.transliteration`).catch(e => {
+                            console.warn('⚠️ Transliteration fetch failed:', e);
+                            return null;
+                        })
+                    ]);
 
-                    // Fetch English translation (always for toggle support)
-                    let translationFetchData = null;
-                    try {
-                        console.log('📚 Fetching English translation...');
-                        const translationResponse = await fetch(`https://api.alquran.cloud/v1/surah/${surah}/en.sahih`);
-                        translationFetchData = await translationResponse.json();
-                    } catch (e) {
-                        console.warn('⚠️ Translation fetch failed, toggling translation will be unavailable:', e);
-                    }
-
-                    // Fetch transliteration (always for toggle support)
-                    let transliterationFetchData = null;
-                    try {
-                        console.log('🔤 Fetching transliteration...');
-                        const transliterationResponse = await fetch(`https://api.alquran.cloud/v1/surah/${surah}/en.transliteration`);
-                        transliterationFetchData = await transliterationResponse.json();
-                    } catch (e) {
-                        console.warn('⚠️ Transliteration fetch failed, toggling transliteration will be unavailable:', e);
-                    }
-
-                    console.log('✅ Verses fetched successfully');
                     loading.remove();
-
-                    // Get the requested verses
-                    const arabicVerses = arabicData.data.ayahs.slice(startVerse - 1, endVerse);
-                    const translationVerses = translationFetchData?.data?.ayahs
-                        ? translationFetchData.data.ayahs.slice(startVerse - 1, endVerse)
-                        : [];
-                    const transliterationVerses = transliterationFetchData?.data?.ayahs
-                        ? transliterationFetchData.data.ayahs.slice(startVerse - 1, endVerse)
-                        : [];
-
-                    const verseElements = [];
-                    const state = {
-                        audioEnabled,
-                        translationEnabled,
-                        transliterationEnabled,
-                        reciter,
-                        surah,
-                        startVerse,
-                        endVerse,
-                        arabicVerses,
-                        verseElements,
-                        translationVerses,
-                        transliterationVerses,
-                        rangeControls: null,
-                    };
-                    this.createToggleBar(container, state);
-
-                    for (let i = 0; i < arabicVerses.length; i++) {
-                        const verse = arabicVerses[i];
-                        const verseDiv = container.createDiv({ cls: 'quran-verse' });
-                        verseDiv.dataset.verseNumber = verse.numberInSurah;
-
-                        // Create a container for text and verse number (inline)
-                        const textContainer = verseDiv.createDiv({ cls: 'quran-text-container' });
-
-                        const textSpan = textContainer.createSpan();
-                        textSpan.innerHTML = this.parseTajweed(verse.text);
-
-                        // Add verse number if enabled
-                        if (this.settings.showVerseNumbers) {
-                            const verseNum = textContainer.createSpan({ cls: 'verse-number' });
-                            verseNum.textContent = verse.numberInSurah;
-                        }
-
-                        // Translation (always created, hidden if disabled)
-                        let translationDiv = null;
-                        if (translationVerses[i]) {
-                            translationDiv = verseDiv.createDiv({ cls: 'quran-translation' });
-                            translationDiv.innerHTML = `<span class="quran-translation-prefix">Translation:</span>${translationVerses[i].text}`;
-                            if (!translationEnabled) translationDiv.style.display = 'none';
-                        }
-
-                        // Transliteration (always created, hidden if disabled)
-                        let transliterationDiv = null;
-                        if (transliterationVerses[i]) {
-                            transliterationDiv = verseDiv.createDiv({ cls: 'quran-transliteration' });
-                            transliterationDiv.innerHTML = `<span class="quran-transliteration-prefix">Transliteration:</span>${transliterationVerses[i].text}`;
-                            if (!transliterationEnabled) transliterationDiv.style.display = 'none';
-                        }
-
-                        // Audio player placeholder
-                        let audioPlayer = null;
-                        verseElements.push({ div: verseDiv, translationDiv, transliterationDiv, audioPlayer });
-                    }
-
-                    // Create range controls + audio players if audio initially enabled
-                    if (audioEnabled) {
-                        if (arabicVerses.length > 1) {
-                            state.rangeControls = this.createRangePlaybackControls(
-                                container, reciter, surah, startVerse, endVerse, arabicVerses
-                            );
-                        }
-                        verseElements.forEach((ve, i) => {
-                            const verse = arabicVerses[i];
-                            const ap = this.createAudioPlayer(reciter, surah, verse.numberInSurah, ve.div, state.rangeControls);
-                            ve.div.appendChild(ap);
-                            ve.audioPlayer = ap;
-                        });
-                    }
+                    cached = { arabicData, translationFetchData, transliterationFetchData };
+                    this.setCache(cacheKey, cached);
                 } catch (error) {
                     console.error('❌ Failed to fetch verses:', error);
                     loading.remove();
                     const errorDiv = container.createDiv({ cls: 'quran-error' });
                     errorDiv.textContent = 'Failed to load verses. Please check your internet connection.';
+                    return;
                 }
+            }
+
+            const { arabicData, translationFetchData, transliterationFetchData } = cached;
+
+            const arabicVerses = arabicData.data.ayahs.slice(startVerse - 1, endVerse);
+            const translationVerses = translationFetchData?.data?.ayahs
+                ? translationFetchData.data.ayahs.slice(startVerse - 1, endVerse)
+                : [];
+            const transliterationVerses = transliterationFetchData?.data?.ayahs
+                ? transliterationFetchData.data.ayahs.slice(startVerse - 1, endVerse)
+                : [];
+
+            const verseElements = [];
+            const state = {
+                audioEnabled,
+                translationEnabled,
+                transliterationEnabled,
+                reciter,
+                surah,
+                startVerse,
+                endVerse,
+                arabicVerses,
+                verseElements,
+                translationVerses,
+                transliterationVerses,
+                rangeControls: null,
+            };
+            this.createToggleBar(container, state);
+
+            for (let i = 0; i < arabicVerses.length; i++) {
+                const verse = arabicVerses[i];
+                const verseDiv = container.createDiv({ cls: 'quran-verse' });
+                verseDiv.dataset.verseNumber = verse.numberInSurah;
+
+                const textContainer = verseDiv.createDiv({ cls: 'quran-text-container' });
+
+                const textSpan = textContainer.createSpan();
+                textSpan.innerHTML = this.parseTajweed(verse.text);
+
+                if (this.settings.showVerseNumbers) {
+                    const verseNum = textContainer.createSpan({ cls: 'verse-number' });
+                    verseNum.textContent = verse.numberInSurah;
+                }
+
+                let translationDiv = null;
+                if (translationVerses[i]) {
+                    translationDiv = verseDiv.createDiv({ cls: 'quran-translation' });
+                    translationDiv.innerHTML = `<span class="quran-translation-prefix">Translation:</span>${translationVerses[i].text}`;
+                    if (!translationEnabled) translationDiv.style.display = 'none';
+                }
+
+                let transliterationDiv = null;
+                if (transliterationVerses[i]) {
+                    transliterationDiv = verseDiv.createDiv({ cls: 'quran-transliteration' });
+                    transliterationDiv.innerHTML = `<span class="quran-transliteration-prefix">Transliteration:</span>${transliterationVerses[i].text}`;
+                    if (!transliterationEnabled) transliterationDiv.style.display = 'none';
+                }
+
+                let audioPlayer = null;
+                verseElements.push({ div: verseDiv, translationDiv, transliterationDiv, audioPlayer });
+            }
+
+            if (audioEnabled) {
+                if (arabicVerses.length > 1) {
+                    state.rangeControls = this.createRangePlaybackControls(
+                        container, reciter, surah, startVerse, endVerse, arabicVerses
+                    );
+                }
+                verseElements.forEach((ve, i) => {
+                    const verse = arabicVerses[i];
+                    const ap = this.createAudioPlayer(reciter, surah, verse.numberInSurah, ve.div, state.rangeControls);
+                    ve.div.appendChild(ap);
+                    ve.audioPlayer = ap;
+                });
+            }
         } else {
             // It's raw text with Tajweed notation, just parse and display
-            console.log('📝 Parsing raw Tajweed text');
             const verseDiv = container.createDiv({ cls: 'quran-verse' });
             verseDiv.innerHTML = this.parseTajweed(source);
         }
     }
 
-    onunload() {
-        console.log('❌ Unloading Quran Tajweed Plugin');
-        const style = document.getElementById('quran-tajweed-styles');
-        if (style) {
-            style.remove();
-        }
-    }
+
 };
 
 // Settings Tab for reciter selection
@@ -1155,7 +822,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
             .setName('Default Repeat Count')
             .setDesc('Default number of times to repeat a range during playback.')
             .addDropdown((dropdown) => {
-                [1, 5, 10, 15, 20].forEach(n => {
+                [5, 10, 15, 20, 25, 30].forEach(n => {
                     dropdown.addOption(String(n), `${n}x`);
                 });
                 dropdown.setValue(String(this.plugin.settings.defaultRepeatCount));
@@ -1235,7 +902,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
         const aboutDiv = containerEl.createDiv();
         aboutDiv.style.cssText = 'font-size: 0.85em; color: var(--text-muted); padding: 10px 0;';
         aboutDiv.innerHTML = `
-            <p><strong>Quran Tajweed Plugin</strong> v1.1.0</p>
+            <p><strong>Quran Tajweed Plugin</strong> v1.2.0</p>
             <p>Display Quranic verses with Tajweed colors using Uthmanic Hafs font.</p>
             <p>Data sources: <a href="https://alquran.cloud" target="_blank">AlQuran.cloud</a> | 
                Audio: <a href="https://quran.com" target="_blank">Quran.com CDN</a></p>
