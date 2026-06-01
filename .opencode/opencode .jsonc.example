@@ -1,0 +1,127 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    // Read-only tools — auto-approved (safe for subagents)
+    "read": {
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "grep": "allow",
+    "glob": "allow",
+    "list": "allow",
+    "lsp": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "codesearch": "allow",
+    "todoread": "allow",
+    "skill": "allow",
+    "task": "allow",
+    "question": "allow",
+
+    // Write tools — require approval
+    "edit": {
+      "*": "ask",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "bash": "ask",
+    "todowrite": "ask",
+    "external_directory": "ask",
+    "doom_loop": "ask"
+  },
+  "mcp": {
+    "chrome-devtools": {
+      "type": "local",
+      "command": [
+        "bun",
+        "x",
+        "chrome-devtools-mcp@latest"
+      ],
+      "enabled": false
+    },
+    "playwright": {
+      "type": "local",
+      "command": [
+        "bun",
+        "x",
+        "@playwright/mcp@latest",
+        "--browser=chromium",
+        "--no-sandbox",
+        "--isolated",
+        "--headless"
+      ],
+      "enabled": false
+    },
+    "searxng": {
+      "type": "local",
+      "command": [
+        "bun",
+        "x",
+        "mcp-searxng"
+      ],
+      "environment": {
+        "SEARXNG_URL": "https://your-searxng-instance.com"
+      },
+      "enabled": false
+    },
+    "fetch": {
+      "type": "local",
+      "command": [
+        "bun",
+        "x",
+        "mcp-fetch-server"
+      ],
+      "enabled": false
+    },
+    "jina": {
+      "type": "remote",
+      "enabled": false,
+      "url": "https://mcp.jina.ai/v1",
+      "headers": {
+        "JINA_API_KEY": ""
+      }
+    },
+    "sequential-thinking": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "bun",
+        "x",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "context7": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "bun",
+        "x",
+        "@upstash/context7-mcp@latest"
+      ]
+    }
+  },
+  "provider": {
+    "antigrav": {
+      "name": "antigrav",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:3344/v1/"
+      }
+    },
+    "kilok": {
+      "name": "kilok",
+      "npm": "@ai-sdk/openai",
+      "options": {
+        "baseURL": "https://api.kilo.ai/api/gateway",
+        "apiKey": "anonymous"
+      },
+      "models": {
+        "kilo-auto/free": {
+          "name": "kilo-auto/free"
+        }
+      }
+    }
+  }
+}
