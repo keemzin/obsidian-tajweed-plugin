@@ -1,4 +1,5 @@
 const { Plugin, PluginSettingTab, Setting } = require('obsidian');
+const SURAHS = require('./data/surahs.json').data;
 
 // Tajweed color mapping
 const TAJWEED_COLORS = {
@@ -405,7 +406,15 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 if (!st) return;
                 st[key] = !st[key];
                 row.querySelector('.quran-settings-toggle').className = `quran-settings-toggle ${st[key] ? 'on' : 'off'}`;
-                this.applyToggle(container, st, key);
+                if (key === 'audioEnabled') {
+                    st.verseElements.forEach(ve => {
+                        if (ve.audioPlayer) {
+                            ve.audioPlayer.style.display = st.audioEnabled ? '' : 'none';
+                        }
+                    });
+                } else {
+                    this.applyToggle(container, st, key);
+                }
             };
             settingsPopover.appendChild(row);
         });
@@ -428,15 +437,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         controlsContainer.appendChild(settingsPopover);
 
         controlsContainer.appendChild(controlBar);
-        // Insert controls after the toggle bar (or at the top if no toggle bar)
-        const toggleBar = container.querySelector('.quran-toggle-bar');
-        if (toggleBar && toggleBar.nextSibling) {
-            container.insertBefore(controlsContainer, toggleBar.nextSibling);
-        } else if (toggleBar) {
-            container.appendChild(controlsContainer);
-        } else {
-            container.insertBefore(controlsContainer, container.firstChild);
-        }
+        container.insertBefore(controlsContainer, container.firstChild);
 
         return controls;
     }
@@ -539,31 +540,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }
     }
 
-    createToggleBar(container, state) {
-        const bar = container.createDiv({ cls: 'quran-toggle-bar' });
-
-        const chips = [
-            { key: 'audioEnabled', label: 'Audio', onIcon: '🔊', offIcon: '🔇' },
-            { key: 'translationEnabled', label: 'Translation', onIcon: '📖', offIcon: '📖' },
-            { key: 'transliterationEnabled', label: 'Transliteration', onIcon: '🔤', offIcon: '🔤' },
-        ];
-
-        chips.forEach(({ key, label, onIcon, offIcon }) => {
-            const chip = bar.createSpan({ cls: 'quran-toggle-chip' });
-            const isActive = state[key];
-            if (isActive) chip.classList.add('active');
-            chip.innerHTML = `${isActive ? onIcon : offIcon} ${label}`;
-            chip.onclick = () => {
-                state[key] = !state[key];
-                chip.classList.toggle('active');
-                chip.innerHTML = `${state[key] ? onIcon : offIcon} ${label}`;
-                this.applyToggle(container, state, key);
-            };
-        });
-
-        container._quranState = state;
-    }
-
     applyToggle(container, state, key) {
         if (key === 'translationEnabled') {
             container.querySelectorAll('.quran-translation').forEach(el => {
@@ -658,6 +634,67 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const startVerse = verseRef.startVerse;
             const endVerse = verseRef.endVerse;
 
+            const navBar = container.createDiv({ cls: 'quran-nav-bar' });
+
+            const surahSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
+            const surahInfo = SURAHS.map(s => ({ ...s }));
+            surahInfo.forEach(s => {
+                const opt = surahSelect.createEl('option');
+                opt.value = s.number;
+                opt.textContent = `${s.number}. ${s.englishName}`;
+                if (s.number === surah) opt.selected = true;
+            });
+
+            const fromSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
+            const toSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
+
+            const currentSurah = SURAHS.find(s => s.number === surah) || surahInfo[0];
+            const totalAyahs = currentSurah.numberOfAyahs;
+
+            const updateVerseOptions = (fromVal) => {
+                toSelect.innerHTML = '';
+                const start = fromVal || 1;
+                for (let i = start; i <= totalAyahs; i++) {
+                    const opt = toSelect.createEl('option');
+                    opt.value = i;
+                    opt.textContent = i;
+                    if (i === endVerse) opt.selected = true;
+                }
+            };
+
+            for (let i = 1; i <= totalAyahs; i++) {
+                const opt = fromSelect.createEl('option');
+                opt.value = i;
+                opt.textContent = i;
+                if (i === startVerse) opt.selected = true;
+            }
+            updateVerseOptions(startVerse);
+
+            surahSelect.onchange = () => {
+                const newSurah = parseInt(surahSelect.value);
+                const s = SURAHS.find(x => x.number === newSurah);
+                if (!s) return;
+                el.innerHTML = '';
+                this.renderQuranWithTajweed(`${newSurah}:1-${Math.min(s.numberOfAyahs, 10)}`, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled);
+            };
+
+            fromSelect.onchange = () => {
+                const f = parseInt(fromSelect.value);
+                const t = Math.max(f, parseInt(toSelect.value));
+                toSelect.value = t;
+                updateVerseOptions(f);
+                el.innerHTML = '';
+                this.renderQuranWithTajweed(`${surah}:${f}-${t}`, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled);
+            };
+
+            toSelect.onchange = () => {
+                const f = parseInt(fromSelect.value);
+                const t = Math.max(f, parseInt(toSelect.value));
+                toSelect.value = t;
+                el.innerHTML = '';
+                this.renderQuranWithTajweed(`${surah}:${f}-${t}`, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled);
+            };
+
             const cacheKey = `quran-surah-${surah}`;
             let cached = this.getCache(cacheKey);
 
@@ -715,7 +752,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 transliterationVerses,
                 rangeControls: null,
             };
-            this.createToggleBar(container, state);
+            container._quranState = state;
 
             for (let i = 0; i < arabicVerses.length; i++) {
                 const verse = arabicVerses[i];

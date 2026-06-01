@@ -206,7 +206,12 @@
     transform: translateX(14px);
 }
 
-.quran-toggle-bar {
+.quran-verse-active {
+    border-left: 3px solid var(--interactive-accent);
+    scroll-margin: 80px;
+}
+
+.quran-nav-bar {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -217,39 +222,21 @@
     flex-wrap: wrap;
 }
 
-.quran-toggle-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
-    border-radius: 14px;
-    border: 1px solid var(--background-modifier-border);
-    cursor: pointer;
-    font-size: 0.6em;
+.quran-nav-select {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+    color: var(--text-normal);
+    font-size: 0.65em;
     font-family: Arial, sans-serif;
-    transition: all 0.15s ease;
-    background: var(--background-primary-alt);
-    color: var(--text-muted);
-    user-select: none;
-    line-height: 1.4;
+    cursor: pointer;
+    padding: 2px 4px;
+    outline: none;
+    max-width: 180px;
 }
 
-.quran-toggle-chip:hover {
-    border-color: var(--interactive-accent);
-    opacity: 0.85;
-}
-
-.quran-toggle-chip.active {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    border-color: var(--interactive-accent);
-}
-
-.quran-verse-active {
-    background: var(--background-modifier-hover) !important;
-    border-left: 3px solid var(--interactive-accent);
-    transition: all 0.3s ease;
-    scroll-margin: 80px;
+.quran-nav-select:hover {
+    border-bottom-color: var(--interactive-accent);
 }
 
 .verse-number {

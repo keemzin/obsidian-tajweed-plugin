@@ -28,16 +28,16 @@ obsidian-tajweed-plugin/
 
 | Section | Lines | Description |
 |---------|-------|-------------|
-| Constants | 1-63 | `TAJWEED_COLORS`, `RULE_MAP`, `AVAILABLE_RECITERS` |
+| Constants | 1-63 | `TAJWEED_COLORS`, `RULE_MAP`, `AVAILABLE_RECITERS`, `SURAHS` |
 | `onload()` | 66-112 | Registers code block processors (`quran`, `tajweed`, `word`) and settings tab |
 | Settings | 70-215 | Defaults, `loadSettings()`, `saveSettings()` |
 | Parsers | 118-185 | `parseReciterFromSource()`, `parseAudioFromSource()`, `extractVerseReference()`, etc. |
-| `renderQuranWithTajweed()` | 674-918 | Main render pipeline: check cache → fetch API → parse Tajweed → build DOM → attach audio |
-| Cache helpers | 557-572 | `getCache()`, `setCache()` using `localStorage` — entire surah responses cached to avoid re-fetch |
+| `renderQuranWithTajweed()` | 614-~760 | Main render pipeline: nav bar → check cache → fetch API → parse Tajweed → build DOM → attach audio |
+| Cache helpers | 592-611 | `getCache()`, `setCache()` using `localStorage` — entire surah responses cached to avoid re-fetch |
 | `parseTajweed()` | 226-238 | Converts notation like `[h:9421[ٱ]` into colored `<span>` elements |
-| Audio | 239-357 | `getAudioUrl()`, `createAudioPlayer()`, `createRangePlaybackControls()`, `playRange()`, `stopRange()` |
-| Toggle bar | 584-660 | `createToggleBar()`, `applyToggle()`, `enableAudio()`, `disableAudio()` |
-| `QuranTajweedSettingTab` | 724-853 | Settings UI (reciter, font size, defaults, etc.) |
+| Audio | 239-315 | `getAudioUrl()`, `createAudioPlayer()`, `createRangePlaybackControls()`, `playRange()`, `stopRange()` |
+| Settings toggle | 534-590 | `applyToggle()`, `enableAudio()`, `disableAudio()` |
+| `QuranTajweedSettingTab` | ~770-940 | Settings UI (reciter, font size, defaults, etc.) |
 
 ### Data flow
 
@@ -51,7 +51,6 @@ Code block (e.g., ```quran 1:1-5```)
                 → setCache() → store in localStorage
         → hit: skip network entirely (0 requests)
       → parseTajweed() → regex replaces [rule[text]] with <span class="tajweed-xxx">
-      → createToggleBar() → Audio/Translation/Transliteration chips
       → createAudioPlayer() per verse (if audio on)
       → createRangePlaybackControls() for multi-verse range (if audio on)
 ```
