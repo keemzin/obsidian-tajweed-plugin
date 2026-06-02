@@ -52,6 +52,11 @@ const TRANSLATION_VERSIONS = [
 
 const DEFAULT_RECITER = 'ar.alafasy';
 
+const TAFSIR_VERSIONS = [
+    { id: 'en-tafisr-ibn-kathir', name: 'Ibn Kathir (Abridged)', apiName: 'Ibn Kathir' },
+    { id: 'en-tafsir-maarif-ul-quran', name: "Ma'arif al-Qur'an", apiName: "Ma'arif al-Qur'an" },
+];
+
 // Available reciters with audio (using Quran.com CDN)
 // Source: https://api.quran.com/api/v4/resources/recitations
 const AVAILABLE_RECITERS = [
@@ -88,7 +93,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             lineSpacing: 1.8,
             translationFontSize: 0.7,
             transliterationFontSize: 0.75,
-            translationVersion: 'en.sahih'
+            translationVersion: 'en.sahih',
+            tafsirVersion: 'en-tafisr-ibn-kathir'
         };
 
         // Load saved settings
@@ -612,6 +618,41 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         return fetch(url).then(r => r.json());
     }
 
+    showTafsir(event, surah, verse) {
+        const existing = document.querySelector('.quran-tafsir-popover');
+        if (existing) existing.remove();
+
+        const tafsirInfo = TAFSIR_VERSIONS.find(t => t.id === this.settings.tafsirVersion) || TAFSIR_VERSIONS[0];
+        const popover = document.createElement('div');
+        popover.className = 'quran-tafsir-popover';
+        popover.innerHTML = '<div class="quran-tafsir-loading">Loading tafsir...</div>';
+        document.body.appendChild(popover);
+
+        this.fetchJson(`https://api.islamic.app/v1/verses/by_key/${surah}:${verse}?tafsirs=${tafsirInfo.id}`)
+            .then(data => {
+                const tafsir = data?.data?.verse?.tafsirs?.[0]?.text || 'No tafsir available for this verse.';
+                popover.innerHTML = `
+                    <div class="quran-tafsir-header">
+                        <span class="quran-tafsir-title">${tafsirInfo.apiName} (${surah}:${verse})</span>
+                        <button class="quran-tafsir-close">&times;</button>
+                    </div>
+                    <div class="quran-tafsir-body">${tafsir}</div>
+                `;
+                popover.querySelector('.quran-tafsir-close').addEventListener('click', () => popover.remove());
+            })
+            .catch(() => {
+                popover.innerHTML = '<div class="quran-tafsir-error">Failed to load tafsir. Check your connection.</div>';
+            });
+
+        const closeHandler = (e) => {
+            if (!popover.contains(e.target) && e.target !== event.currentTarget) {
+                popover.remove();
+                document.removeEventListener('click', closeHandler, true);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+    }
+
     getCache(key) {
         try {
             const data = localStorage.getItem(key);
@@ -629,6 +670,19 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }
     }
 
+    async rerenderAll() {
+        const containers = [...document.querySelectorAll('.quran-tajweed-container')];
+        await Promise.all(containers.map(async container => {
+            const state = container._quranState;
+            if (!state) return;
+            const el = container.parentElement;
+            if (!el) return;
+            const source = `${state.surah}:${state.startVerse}-${state.endVerse}`;
+            el.innerHTML = '';
+            await this.renderQuranWithTajweed(source, el, false, state.reciter, state.audioEnabled, state.translationEnabled, state.transliterationEnabled);
+        }));
+    }
+
     async renderQuranWithTajweed(source, el, isInlineWord = false, reciter = DEFAULT_RECITER, audioEnabled = false, translationEnabled = false, transliterationEnabled = false) {
         // For inline words, use simpler styling
         if (isInlineWord) {
@@ -638,11 +692,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }
 
         const container = el.createDiv({ cls: 'quran-tajweed-container' });
-        
-        container.style.setProperty('--quran-font-size', `${this.settings.fontSize}em`);
-        container.style.setProperty('--quran-line-height', `${this.settings.lineSpacing}`);
-        container.style.setProperty('--quran-translation-size', `${this.settings.translationFontSize}em`);
-        container.style.setProperty('--quran-transliteration-size', `${this.settings.transliterationFontSize}em`);
+        container.style.fontSize = `${this.settings.fontSize}em`;
+        container.style.lineHeight = `${this.settings.lineSpacing}`;
 
         // Parse the source to get surah:verse references
         // First check if there's a verse reference anywhere in the source
@@ -831,8 +882,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
                 const textContainer = verseDiv.createDiv({ cls: 'quran-text-container' });
 
-                const textSpan = textContainer.createSpan();
+                const textSpan = textContainer.createSpan({ cls: 'quran-verse-text' });
                 textSpan.innerHTML = this.parseTajweed(verse.text);
+                textSpan.addEventListener('click', (e) => {
+                    if (!window.getSelection().toString()) {
+                        this.showTafsir(e, surah, verse.numberInSurah);
+                    }
+                });
 
                 if (this.settings.showVerseNumbers) {
                     const verseNum = textContainer.createSpan({ cls: 'verse-number' });
@@ -842,6 +898,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 let translationDiv = null;
                 if (translationVerses[i]) {
                     translationDiv = verseDiv.createDiv({ cls: 'quran-translation' });
+                    translationDiv.style.fontSize = `${this.settings.translationFontSize}em`;
                     translationDiv.innerHTML = `<span class="quran-translation-prefix">Translation:</span>${translationVerses[i].text}`;
                     if (!translationEnabled) translationDiv.style.display = 'none';
                 }
@@ -849,6 +906,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 let transliterationDiv = null;
                 if (transliterationVerses[i]) {
                     transliterationDiv = verseDiv.createDiv({ cls: 'quran-transliteration' });
+                    transliterationDiv.style.fontSize = `${this.settings.transliterationFontSize}em`;
                     transliterationDiv.innerHTML = `<span class="quran-transliteration-prefix">Transliteration:</span>${transliterationVerses[i].text}`;
                     if (!transliterationEnabled) transliterationDiv.style.display = 'none';
                 }
@@ -911,6 +969,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                     this.plugin.settings.reciter = value;
                     this.plugin.settings.reciterName = selectedReciter ? selectedReciter.name : value;
                     await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
                 });
             });
 
@@ -922,6 +981,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 toggle.onChange(async (value) => {
                     this.plugin.settings.defaultAudio = value;
                     await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
                 });
             });
 
@@ -952,6 +1012,9 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 slider.onChange(async (value) => {
                     this.plugin.settings.fontSize = Math.round(value * 10) / 10;
                     await this.plugin.saveSettings();
+                    document.querySelectorAll('.quran-tajweed-container').forEach(c => {
+                        c.style.fontSize = `${this.plugin.settings.fontSize}em`;
+                    });
                 });
             });
 
@@ -965,6 +1028,9 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 slider.onChange(async (value) => {
                     this.plugin.settings.translationFontSize = Math.round(value * 100) / 100;
                     await this.plugin.saveSettings();
+                    document.querySelectorAll('.quran-translation').forEach(c => {
+                        c.style.fontSize = `${this.plugin.settings.translationFontSize}em`;
+                    });
                 });
             });
 
@@ -978,6 +1044,9 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 slider.onChange(async (value) => {
                     this.plugin.settings.transliterationFontSize = Math.round(value * 100) / 100;
                     await this.plugin.saveSettings();
+                    document.querySelectorAll('.quran-transliteration').forEach(c => {
+                        c.style.fontSize = `${this.plugin.settings.transliterationFontSize}em`;
+                    });
                 });
             });
 
@@ -991,6 +1060,9 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 slider.onChange(async (value) => {
                     this.plugin.settings.lineSpacing = Math.round(value * 10) / 10;
                     await this.plugin.saveSettings();
+                    document.querySelectorAll('.quran-tajweed-container').forEach(c => {
+                        c.style.lineHeight = `${this.plugin.settings.lineSpacing}`;
+                    });
                 });
             });
 
@@ -1002,6 +1074,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 toggle.onChange(async (value) => {
                     this.plugin.settings.showVerseNumbers = value;
                     await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
                 });
             });
 
@@ -1019,6 +1092,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 dropdown.onChange(async (value) => {
                     this.plugin.settings.translationVersion = value;
                     await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
                 });
             });
 
@@ -1030,6 +1104,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 toggle.onChange(async (value) => {
                     this.plugin.settings.defaultTranslation = value;
                     await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
                 });
             });
 
@@ -1040,6 +1115,21 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 toggle.setValue(this.plugin.settings.defaultTransliteration);
                 toggle.onChange(async (value) => {
                     this.plugin.settings.defaultTransliteration = value;
+                    await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
+                });
+            });
+
+        new Setting(containerEl)
+            .setName('Tafsir Version')
+            .setDesc('Choose which tafsir to show when clicking a verse.')
+            .addDropdown((dropdown) => {
+                TAFSIR_VERSIONS.forEach(t => {
+                    dropdown.addOption(t.id, t.name);
+                });
+                dropdown.setValue(this.plugin.settings.tafsirVersion);
+                dropdown.onChange(async (value) => {
+                    this.plugin.settings.tafsirVersion = value;
                     await this.plugin.saveSettings();
                 });
             });

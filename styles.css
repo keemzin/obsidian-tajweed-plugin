@@ -351,3 +351,82 @@
 .theme-dark .quran-tajweed-container .tajweed-idgh_w_ghn { color: #4FC250; }
 .theme-dark .quran-tajweed-container .tajweed-idgh_mus { color: #C0C0C0; }
 .theme-dark .quran-tajweed-container .tajweed-ghn { color: #FFA050; }
+
+.quran-verse-text {
+    cursor: pointer;
+}
+
+.quran-tafsir-popover {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    font-family: Arial, sans-serif;
+    direction: ltr;
+    text-align: left;
+    max-height: min(80vh, 500px);
+    width: min(520px, calc(100vw - 24px));
+    overflow-y: auto;
+}
+
+.quran-tafsir-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: var(--background-secondary);
+    border-radius: 8px 8px 0 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.quran-tafsir-title {
+    font-size: 0.75em;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.quran-tafsir-close {
+    background: none;
+    border: none;
+    font-size: 1.3em;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0 4px;
+    line-height: 1;
+}
+.quran-tafsir-close:hover {
+    color: var(--text-normal);
+}
+
+.quran-tafsir-body {
+    padding: 12px 14px;
+    font-size: 0.78em;
+    line-height: 1.7;
+    color: var(--text-normal);
+}
+.quran-tafsir-body p {
+    margin: 0 0 8px 0;
+}
+.quran-tafsir-body p:last-child {
+    margin-bottom: 0;
+}
+
+.quran-tafsir-loading,
+.quran-tafsir-error {
+    padding: 18px 14px;
+    font-size: 0.78em;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.quran-tafsir-error {
+    color: var(--text-error);
+}
