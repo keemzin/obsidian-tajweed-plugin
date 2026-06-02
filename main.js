@@ -77,7 +77,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             defaultTransliteration: false,
             defaultRepeatCount: 5,
             showVerseNumbers: true,
-            lineSpacing: 1.8
+            lineSpacing: 1.8,
+            translationFontSize: 0.7,
+            transliterationFontSize: 0.75
         };
 
         // Load saved settings
@@ -192,6 +194,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.settings.defaultRepeatCount = this.snapToRepeatOption(saved.defaultRepeatCount || 5);
             this.settings.showVerseNumbers = saved.showVerseNumbers !== undefined ? saved.showVerseNumbers : true;
             this.settings.lineSpacing = saved.lineSpacing !== undefined ? saved.lineSpacing : 1.8;
+            this.settings.translationFontSize = saved.translationFontSize !== undefined ? saved.translationFontSize : 0.7;
+            this.settings.transliterationFontSize = saved.transliterationFontSize !== undefined ? saved.transliterationFontSize : 0.75;
+
         }
     }
 
@@ -205,7 +210,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             defaultTransliteration: this.settings.defaultTransliteration,
             defaultRepeatCount: this.settings.defaultRepeatCount,
             showVerseNumbers: this.settings.showVerseNumbers,
-            lineSpacing: this.settings.lineSpacing
+            lineSpacing: this.settings.lineSpacing,
+            translationFontSize: this.settings.translationFontSize,
+            transliterationFontSize: this.settings.transliterationFontSize
         });
     }
 
@@ -621,9 +628,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         const container = el.createDiv({ cls: 'quran-tajweed-container' });
         
-        // Apply dynamic font settings from user preferences
         container.style.setProperty('--quran-font-size', `${this.settings.fontSize}em`);
         container.style.setProperty('--quran-line-height', `${this.settings.lineSpacing}`);
+        container.style.setProperty('--quran-translation-size', `${this.settings.translationFontSize}em`);
+        container.style.setProperty('--quran-transliteration-size', `${this.settings.transliterationFontSize}em`);
 
         // Parse the source to get surah:verse references
         // First check if there's a verse reference anywhere in the source
@@ -641,7 +649,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             surahInfo.forEach(s => {
                 const opt = surahSelect.createEl('option');
                 opt.value = s.number;
-                opt.textContent = `${s.number}. ${s.englishName}`;
+                opt.textContent = `${s.number}. ${s.name}`;
                 if (s.number === surah) opt.selected = true;
             });
 
@@ -873,14 +881,40 @@ class QuranTajweedSettingTab extends PluginSettingTab {
         containerEl.createEl('h3', { text: '🎨 Display Settings' });
 
         new Setting(containerEl)
-            .setName('Font Size')
-            .setDesc('Adjust the size of the Arabic text.')
+            .setName('Arabic Font Size')
+            .setDesc('Adjust the size of the Arabic Quran text.')
             .addSlider((slider) => {
                 slider.setLimits(1.2, 3.0, 0.1);
                 slider.setValue(this.plugin.settings.fontSize);
                 slider.setDynamicTooltip();
                 slider.onChange(async (value) => {
                     this.plugin.settings.fontSize = Math.round(value * 10) / 10;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(containerEl)
+            .setName('Translation Font Size')
+            .setDesc('Adjust the size of the English translation text.')
+            .addSlider((slider) => {
+                slider.setLimits(0.5, 1.5, 0.05);
+                slider.setValue(this.plugin.settings.translationFontSize);
+                slider.setDynamicTooltip();
+                slider.onChange(async (value) => {
+                    this.plugin.settings.translationFontSize = Math.round(value * 100) / 100;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(containerEl)
+            .setName('Transliteration Font Size')
+            .setDesc('Adjust the size of the English transliteration text.')
+            .addSlider((slider) => {
+                slider.setLimits(0.5, 1.5, 0.05);
+                slider.setValue(this.plugin.settings.transliterationFontSize);
+                slider.setDynamicTooltip();
+                slider.onChange(async (value) => {
+                    this.plugin.settings.transliterationFontSize = Math.round(value * 100) / 100;
                     await this.plugin.saveSettings();
                 });
             });
