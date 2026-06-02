@@ -2,7 +2,7 @@
 
 ## Overview
 
-Obsidian plugin that renders Quranic verses with Tajweed color-coding, audio playback, translation, and transliteration. Uses Uthmanic Hafs font and fetches data from AlQuran.cloud API.
+Obsidian plugin that renders Quranic verses with Tajweed color-coding, audio playback, translation, and transliteration. Uses Uthmanic Hafs font and fetches data from AlQuran.cloud API and Quran.com API v4.
 
 ## File Structure
 

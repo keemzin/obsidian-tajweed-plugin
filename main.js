@@ -42,6 +42,14 @@ const RULE_MAP = {
 };
 
 // Default reciter
+const TRANSLATION_VERSIONS = [
+    { id: 'en.sahih', name: 'Saheeh International (English)', source: 'alquran-cloud', apiId: 'en.sahih' },
+    { id: '131', name: 'Dr. Mustafa Khattab — The Clear Quran (English)', source: 'fawazahmed', apiId: 'eng-mustafakhattaba' },
+    { id: '39', name: 'Abdullah Muhammad Basmeih (Malay)', source: 'fawazahmed', apiId: 'msa-abdullahmuhamma' },
+    { id: '33', name: 'Indonesian Islamic Affairs Ministry (Indonesian)', source: 'fawazahmed', apiId: 'ind-indonesianislam' },
+    { id: '20', name: 'Saheeh International (English)', source: 'fawazahmed', apiId: 'eng-sahihinternational' },
+];
+
 const DEFAULT_RECITER = 'ar.alafasy';
 
 // Available reciters with audio (using Quran.com CDN)
@@ -79,7 +87,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             showVerseNumbers: true,
             lineSpacing: 1.8,
             translationFontSize: 0.7,
-            transliterationFontSize: 0.75
+            transliterationFontSize: 0.75,
+            translationVersion: 'en.sahih'
         };
 
         // Load saved settings
@@ -196,6 +205,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.settings.lineSpacing = saved.lineSpacing !== undefined ? saved.lineSpacing : 1.8;
             this.settings.translationFontSize = saved.translationFontSize !== undefined ? saved.translationFontSize : 0.7;
             this.settings.transliterationFontSize = saved.transliterationFontSize !== undefined ? saved.transliterationFontSize : 0.75;
+            this.settings.translationVersion = saved.translationVersion !== undefined ? saved.translationVersion : 'en.sahih';
 
         }
     }
@@ -212,7 +222,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             showVerseNumbers: this.settings.showVerseNumbers,
             lineSpacing: this.settings.lineSpacing,
             translationFontSize: this.settings.translationFontSize,
-            transliterationFontSize: this.settings.transliterationFontSize
+            transliterationFontSize: this.settings.transliterationFontSize,
+            translationVersion: this.settings.translationVersion
         });
     }
 
@@ -703,20 +714,19 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 this.renderQuranWithTajweed(`${surah}:${f}-${t}`, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled);
             };
 
-            const cacheKey = `quran-surah-${surah}`;
-            let cached = this.getCache(cacheKey);
+            const arabicCacheKey = `quran-surah-${surah}`;
+            const transInfo = TRANSLATION_VERSIONS.find(t => t.id === this.settings.translationVersion) || TRANSLATION_VERSIONS[0];
+            const transCacheKey = `quran-surah-${surah}-trans-${transInfo.source}-${this.settings.translationVersion}`;
+            let arabicCached = this.getCache(arabicCacheKey);
+            let transCached = this.getCache(transCacheKey);
 
-            if (!cached) {
+            if (!arabicCached) {
                 const loading = container.createDiv({ cls: 'quran-loading' });
                 loading.textContent = 'Loading verses...';
 
                 try {
-                    const [arabicData, translationFetchData, transliterationFetchData] = await Promise.all([
+                    const [arabicData, transliterationFetchData] = await Promise.all([
                         this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/quran-tajweed`),
-                        this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/en.sahih`).catch(e => {
-                            console.warn('⚠️ Translation fetch failed:', e);
-                            return null;
-                        }),
                         this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/en.transliteration`).catch(e => {
                             console.warn('⚠️ Transliteration fetch failed:', e);
                             return null;
@@ -724,8 +734,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     ]);
 
                     loading.remove();
-                    cached = { arabicData, translationFetchData, transliterationFetchData };
-                    this.setCache(cacheKey, cached);
+                    arabicCached = { arabicData, transliterationFetchData };
+                    this.setCache(arabicCacheKey, arabicCached);
                 } catch (error) {
                     console.error('❌ Failed to fetch verses:', error);
                     loading.remove();
@@ -735,12 +745,64 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 }
             }
 
-            const { arabicData, translationFetchData, transliterationFetchData } = cached;
+            if (!transCached) {
+
+                if (transInfo.source === 'quran-com') {
+                    try {
+                        const data = await this.fetchJson(`https://api.quran.com/api/v4/verses/by_chapter/${surah}?translations=${transInfo.apiId}&per_page=300`);
+                        transCached = { translationData: data };
+                    } catch (e) {
+                        console.warn('⚠️ Translation fetch failed:', e);
+                        transCached = { translationData: null };
+                    }
+                } else if (transInfo.source === 'fawazahmed') {
+                    try {
+                        const data = await this.fetchJson(`https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${transInfo.apiId}/${surah}.json`);
+                        transCached = { translationData: data };
+                    } catch (e) {
+                        console.warn('⚠️ Translation fetch failed:', e);
+                        transCached = { translationData: null };
+                    }
+                } else {
+                    try {
+                        const data = await this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/${transInfo.apiId}`);
+                        transCached = { translationData: data };
+                    } catch (e) {
+                        console.warn('⚠️ Translation fetch failed:', e);
+                        transCached = { translationData: null };
+                    }
+                }
+                this.setCache(transCacheKey, transCached);
+            }
+
+            const { arabicData, transliterationFetchData } = arabicCached;
+            const translationFetchData = transCached.translationData;
 
             const arabicVerses = arabicData.data.ayahs.slice(startVerse - 1, endVerse);
-            const translationVerses = translationFetchData?.data?.ayahs
-                ? translationFetchData.data.ayahs.slice(startVerse - 1, endVerse)
-                : [];
+            const translationVerses = [];
+            if (translationFetchData) {
+                if (translationFetchData.verses) {
+                    // Quran.com API v4 format
+                    const allVerses = translationFetchData.verses;
+                    const sliced = allVerses.slice(startVerse - 1, endVerse);
+                    sliced.forEach(v => {
+                        const t = v.translations?.[0];
+                        translationVerses.push({ text: t?.text || '' });
+                    });
+                } else if (translationFetchData.chapter) {
+                    // fawazahmed0 API format
+                    const allVerses = translationFetchData.chapter;
+                    const sliced = allVerses.slice(startVerse - 1, endVerse);
+                    sliced.forEach(v => {
+                        translationVerses.push({ text: v.text || '' });
+                    });
+                } else if (translationFetchData.data?.ayahs) {
+                    // AlQuran.cloud format
+                    translationFetchData.data.ayahs.slice(startVerse - 1, endVerse).forEach(a => {
+                        translationVerses.push({ text: a.text });
+                    });
+                }
+            }
             const transliterationVerses = transliterationFetchData?.data?.ayahs
                 ? transliterationFetchData.data.ayahs.slice(startVerse - 1, endVerse)
                 : [];
@@ -947,6 +1009,20 @@ class QuranTajweedSettingTab extends PluginSettingTab {
         containerEl.createEl('h3', { text: '📖 Content Settings' });
 
         new Setting(containerEl)
+            .setName('Translation Version')
+            .setDesc('Choose which English translation to display.')
+            .addDropdown((dropdown) => {
+                TRANSLATION_VERSIONS.forEach(t => {
+                    dropdown.addOption(t.id, t.name);
+                });
+                dropdown.setValue(this.plugin.settings.translationVersion);
+                dropdown.onChange(async (value) => {
+                    this.plugin.settings.translationVersion = value;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(containerEl)
             .setName('Default Translation')
             .setDesc('Show English translation (Saheeh International) by default.')
             .addToggle((toggle) => {
@@ -976,6 +1052,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
             <p><strong>Quran Tajweed Plugin</strong> v1.2.0</p>
             <p>Display Quranic verses with Tajweed colors using Uthmanic Hafs font.</p>
             <p>Data sources: <a href="https://alquran.cloud" target="_blank">AlQuran.cloud</a> | 
+               <a href="https://quran.com" target="_blank">Quran.com API</a> | 
                Audio: <a href="https://quran.com" target="_blank">Quran.com CDN</a></p>
         `;
     }
