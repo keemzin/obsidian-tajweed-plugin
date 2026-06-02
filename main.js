@@ -1,4 +1,4 @@
-const { Plugin, PluginSettingTab, Setting } = require('obsidian');
+const { Plugin, PluginSettingTab, Setting, MarkdownView } = require('obsidian');
 const SURAHS = [{ number: 1, name: "Al-Faatiha", ayahs: 7 }, { number: 2, name: "Al-Baqara", ayahs: 286 }, { number: 3, name: "Aal-i-Imraan", ayahs: 200 }, { number: 4, name: "An-Nisaa", ayahs: 176 }, { number: 5, name: "Al-Maaida", ayahs: 120 }, { number: 6, name: "Al-An'aam", ayahs: 165 }, { number: 7, name: "Al-A'raaf", ayahs: 206 }, { number: 8, name: "Al-Anfaal", ayahs: 75 }, { number: 9, name: "At-Tawba", ayahs: 129 }, { number: 10, name: "Yunus", ayahs: 109 }, { number: 11, name: "Hud", ayahs: 123 }, { number: 12, name: "Yusuf", ayahs: 111 }, { number: 13, name: "Ar-Ra'd", ayahs: 43 }, { number: 14, name: "Ibrahim", ayahs: 52 }, { number: 15, name: "Al-Hijr", ayahs: 99 }, { number: 16, name: "An-Nahl", ayahs: 128 }, { number: 17, name: "Al-Israa", ayahs: 111 }, { number: 18, name: "Al-Kahf", ayahs: 110 }, { number: 19, name: "Maryam", ayahs: 98 }, { number: 20, name: "Taa-Haa", ayahs: 135 }, { number: 21, name: "Al-Anbiyaa", ayahs: 112 }, { number: 22, name: "Al-Hajj", ayahs: 78 }, { number: 23, name: "Al-Muminoon", ayahs: 118 }, { number: 24, name: "An-Noor", ayahs: 64 }, { number: 25, name: "Al-Furqaan", ayahs: 77 }, { number: 26, name: "Ash-Shu'araa", ayahs: 227 }, { number: 27, name: "An-Naml", ayahs: 93 }, { number: 28, name: "Al-Qasas", ayahs: 88 }, { number: 29, name: "Al-Ankaboot", ayahs: 69 }, { number: 30, name: "Ar-Room", ayahs: 60 }, { number: 31, name: "Luqman", ayahs: 34 }, { number: 32, name: "As-Sajda", ayahs: 30 }, { number: 33, name: "Al-Ahzaab", ayahs: 73 }, { number: 34, name: "Saba", ayahs: 54 }, { number: 35, name: "Faatir", ayahs: 45 }, { number: 36, name: "Yaseen", ayahs: 83 }, { number: 37, name: "As-Saaffaat", ayahs: 182 }, { number: 38, name: "Saad", ayahs: 88 }, { number: 39, name: "Az-Zumar", ayahs: 75 }, { number: 40, name: "Ghafir", ayahs: 85 }, { number: 41, name: "Fussilat", ayahs: 54 }, { number: 42, name: "Ash-Shura", ayahs: 53 }, { number: 43, name: "Az-Zukhruf", ayahs: 89 }, { number: 44, name: "Ad-Dukhaan", ayahs: 59 }, { number: 45, name: "Al-Jaathiya", ayahs: 37 }, { number: 46, name: "Al-Ahqaf", ayahs: 35 }, { number: 47, name: "Muhammad", ayahs: 38 }, { number: 48, name: "Al-Fath", ayahs: 29 }, { number: 49, name: "Al-Hujuraat", ayahs: 18 }, { number: 50, name: "Qaaf", ayahs: 45 }, { number: 51, name: "Adh-Dhaariyat", ayahs: 60 }, { number: 52, name: "At-Tur", ayahs: 49 }, { number: 53, name: "An-Najm", ayahs: 62 }, { number: 54, name: "Al-Qamar", ayahs: 55 }, { number: 55, name: "Ar-Rahmaan", ayahs: 78 }, { number: 56, name: "Al-Waaqia", ayahs: 96 }, { number: 57, name: "Al-Hadid", ayahs: 29 }, { number: 58, name: "Al-Mujaadila", ayahs: 22 }, { number: 59, name: "Al-Hashr", ayahs: 24 }, { number: 60, name: "Al-Mumtahana", ayahs: 13 }, { number: 61, name: "As-Saff", ayahs: 14 }, { number: 62, name: "Al-Jumu'a", ayahs: 11 }, { number: 63, name: "Al-Munaafiqoon", ayahs: 11 }, { number: 64, name: "At-Taghaabun", ayahs: 18 }, { number: 65, name: "At-Talaaq", ayahs: 12 }, { number: 66, name: "At-Tahrim", ayahs: 12 }, { number: 67, name: "Al-Mulk", ayahs: 30 }, { number: 68, name: "Al-Qalam", ayahs: 52 }, { number: 69, name: "Al-Haaqqa", ayahs: 52 }, { number: 70, name: "Al-Ma'aarij", ayahs: 44 }, { number: 71, name: "Nooh", ayahs: 28 }, { number: 72, name: "Al-Jinn", ayahs: 28 }, { number: 73, name: "Al-Muzzammil", ayahs: 20 }, { number: 74, name: "Al-Muddaththir", ayahs: 56 }, { number: 75, name: "Al-Qiyaama", ayahs: 40 }, { number: 76, name: "Al-Insaan", ayahs: 31 }, { number: 77, name: "Al-Mursalaat", ayahs: 50 }, { number: 78, name: "An-Naba", ayahs: 40 }, { number: 79, name: "An-Naazi'aat", ayahs: 46 }, { number: 80, name: "Abasa", ayahs: 42 }, { number: 81, name: "At-Takwir", ayahs: 29 }, { number: 82, name: "Al-Infitaar", ayahs: 19 }, { number: 83, name: "Al-Mutaffifin", ayahs: 36 }, { number: 84, name: "Al-Inshiqaaq", ayahs: 25 }, { number: 85, name: "Al-Burooj", ayahs: 22 }, { number: 86, name: "At-Taariq", ayahs: 17 }, { number: 87, name: "Al-A'laa", ayahs: 19 }, { number: 88, name: "Al-Ghaashiya", ayahs: 26 }, { number: 89, name: "Al-Fajr", ayahs: 30 }, { number: 90, name: "Al-Balad", ayahs: 20 }, { number: 91, name: "Ash-Shams", ayahs: 15 }, { number: 92, name: "Al-Lail", ayahs: 21 }, { number: 93, name: "Ad-Dhuhaa", ayahs: 11 }, { number: 94, name: "Ash-Sharh", ayahs: 8 }, { number: 95, name: "At-Tin", ayahs: 8 }, { number: 96, name: "Al-Alaq", ayahs: 19 }, { number: 97, name: "Al-Qadr", ayahs: 5 }, { number: 98, name: "Al-Bayyina", ayahs: 8 }, { number: 99, name: "Az-Zalzala", ayahs: 8 }, { number: 100, name: "Al-Aadiyaat", ayahs: 11 }, { number: 101, name: "Al-Qaari'a", ayahs: 11 }, { number: 102, name: "At-Takaathur", ayahs: 8 }, { number: 103, name: "Al-Asr", ayahs: 3 }, { number: 104, name: "Al-Humaza", ayahs: 9 }, { number: 105, name: "Al-Fil", ayahs: 5 }, { number: 106, name: "Quraish", ayahs: 4 }, { number: 107, name: "Al-Maa'un", ayahs: 7 }, { number: 108, name: "Al-Kawthar", ayahs: 3 }, { number: 109, name: "Al-Kaafiroon", ayahs: 6 }, { number: 110, name: "An-Nasr", ayahs: 3 }, { number: 111, name: "Al-Masad", ayahs: 5 }, { number: 112, name: "Al-Ikhlaas", ayahs: 4 }, { number: 113, name: "Al-Falaq", ayahs: 5 }, { number: 114, name: "An-Naas", ayahs: 6 }];
 
 // Tajweed color mapping
@@ -85,9 +85,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             reciter: DEFAULT_RECITER,
             reciterName: 'Mishary Rashid Alafasy',
             fontSize: 1.8,
-            defaultAudio: false,
-            defaultTranslation: false,
-            defaultTransliteration: false,
+            defaultAudio: true,
+            defaultTranslation: true,
+            defaultTransliteration: true,
             defaultRepeatCount: 5,
             showVerseNumbers: true,
             lineSpacing: 1.8,
@@ -111,7 +111,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const translationEnabled = this.parseTranslationFromSource(source);
             const transliterationEnabled = this.parseTransliterationFromSource(source);
             const actualSource = this.removeParameters(source);
-            await this.renderQuranWithTajweed(actualSource, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled);
+            await this.renderQuranWithTajweed(actualSource, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled, ctx);
         });
 
         // Register markdown post processor for code blocks with language "tajweed"
@@ -125,6 +125,23 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         });
 
         console.log('✅ Quran Tajweed Plugin loaded successfully');
+
+        this.addCommand({
+            id: 'insert-quran-block',
+            name: 'Insert Quran verse block',
+            editorCallback: (editor) => {
+                editor.replaceSelection('```quran\naudio="on"\ntranslation="on"\ntransliteration="on"\n1:1\n```\n');
+            }
+        });
+
+        this.registerEvent(this.app.workspace.on('editor-menu', (menu, editor) => {
+            menu.addItem((item) => {
+                item.setTitle('Insert Quran verse block')
+                    .onClick(() => {
+                        editor.replaceSelection('```quran\naudio="on"\ntranslation="on"\ntransliteration="on"\n1:1\n```\n');
+                    });
+            });
+        }));
     }
 
     parseReciterFromSource(source) {
@@ -203,15 +220,16 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.settings.reciter = saved.reciter || DEFAULT_RECITER;
             this.settings.reciterName = saved.reciterName || 'Mishary Rashid Alafasy';
             this.settings.fontSize = saved.fontSize !== undefined ? saved.fontSize : 1.8;
-            this.settings.defaultAudio = saved.defaultAudio || false;
-            this.settings.defaultTranslation = saved.defaultTranslation || false;
-            this.settings.defaultTransliteration = saved.defaultTransliteration || false;
+            this.settings.defaultAudio = saved.defaultAudio !== undefined ? saved.defaultAudio : true;
+            this.settings.defaultTranslation = saved.defaultTranslation !== undefined ? saved.defaultTranslation : true;
+            this.settings.defaultTransliteration = saved.defaultTransliteration !== undefined ? saved.defaultTransliteration : true;
             this.settings.defaultRepeatCount = this.snapToRepeatOption(saved.defaultRepeatCount || 5);
             this.settings.showVerseNumbers = saved.showVerseNumbers !== undefined ? saved.showVerseNumbers : true;
             this.settings.lineSpacing = saved.lineSpacing !== undefined ? saved.lineSpacing : 1.8;
             this.settings.translationFontSize = saved.translationFontSize !== undefined ? saved.translationFontSize : 0.7;
             this.settings.transliterationFontSize = saved.transliterationFontSize !== undefined ? saved.transliterationFontSize : 0.75;
             this.settings.translationVersion = saved.translationVersion !== undefined ? saved.translationVersion : 'en.sahih';
+            this.settings.tafsirVersion = saved.tafsirVersion !== undefined ? saved.tafsirVersion : 'en-tafisr-ibn-kathir';
 
         }
     }
@@ -229,7 +247,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             lineSpacing: this.settings.lineSpacing,
             translationFontSize: this.settings.translationFontSize,
             transliterationFontSize: this.settings.transliterationFontSize,
-            translationVersion: this.settings.translationVersion
+            translationVersion: this.settings.translationVersion,
+            tafsirVersion: this.settings.tafsirVersion
         });
     }
 
@@ -340,7 +359,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         return audioContainer;
     }
 
-    createRangePlaybackControls(container, reciter, surah, startVerse, endVerse, verses) {
+    createRangePlaybackControls(container, reciter, surah, startVerse, endVerse, verses, audioEnabled) {
         const controlsContainer = document.createElement('div');
         controlsContainer.className = 'quran-range-controls';
 
@@ -353,7 +372,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             reciter,
             surah,
             startVerse,
-            endVerse
+            endVerse,
+            audioControls: []
         };
 
         // Control bar
@@ -367,6 +387,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         playBtn.title = 'Play range';
         playBtn.onclick = () => this.playRange(controls);
         controls.playButton = playBtn;
+        controls.audioControls.push(playBtn);
 
         // Stop button (icon-only)
         const stopBtn = document.createElement('button');
@@ -376,6 +397,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         stopBtn.onclick = () => this.stopRange(controls);
         stopBtn.style.display = 'none'; // Hidden initially
         controls.stopButton = stopBtn;
+        controls.audioControls.push(stopBtn);
 
         // Repeat controls
         const repeatContainer = document.createElement('div');
@@ -403,6 +425,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         repeatContainer.appendChild(repeatSelect);
         repeatContainer.appendChild(repeatDisplay);
+        controls.audioControls.push(repeatContainer);
 
         const settingsBtn = document.createElement('button');
         settingsBtn.className = 'quran-settings-btn';
@@ -425,20 +448,14 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const state = container._quranState || {};
             const isActive = state[key];
             row.innerHTML = `<span>${label}</span><span class="quran-settings-toggle ${isActive ? 'on' : 'off'}"></span>`;
-            row.onclick = () => {
+            row.onclick = async () => {
                 const st = container._quranState;
                 if (!st) return;
+                settingsPopover.style.display = 'none';
                 st[key] = !st[key];
                 row.querySelector('.quran-settings-toggle').className = `quran-settings-toggle ${st[key] ? 'on' : 'off'}`;
-                if (key === 'audioEnabled') {
-                    st.verseElements.forEach(ve => {
-                        if (ve.audioPlayer) {
-                            ve.audioPlayer.style.display = st.audioEnabled ? '' : 'none';
-                        }
-                    });
-                } else {
-                    this.applyToggle(container, st, key);
-                }
+                this.applyToggle(container, st, key);
+                await this.updateSourceParam(container, key, st[key]);
             };
             settingsPopover.appendChild(row);
         });
@@ -459,6 +476,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         controlBar.appendChild(repeatContainer);
         controlBar.appendChild(settingsBtn);
         controlsContainer.appendChild(settingsPopover);
+
+        if (!audioEnabled) {
+            controls.audioControls.forEach(el => el.style.display = 'none');
+        }
 
         controlsContainer.appendChild(controlBar);
         container.insertBefore(controlsContainer, container.firstChild);
@@ -583,12 +604,15 @@ module.exports = class QuranTajweedPlugin extends Plugin {
     }
 
     enableAudio(container, state) {
-        let rangeControls = null;
-        if (state.arabicVerses.length > 1) {
+        let rangeControls = state.rangeControls;
+        if (state.arabicVerses.length > 1 && !rangeControls) {
             rangeControls = this.createRangePlaybackControls(
-                container, state.reciter, state.surah, state.startVerse, state.endVerse, state.arabicVerses
+                container, state.reciter, state.surah, state.startVerse, state.endVerse, state.arabicVerses, true
             );
             state.rangeControls = rangeControls;
+        }
+        if (rangeControls && rangeControls.audioControls) {
+            rangeControls.audioControls.forEach(el => el.style.display = '');
         }
         state.verseElements.forEach((ve, i) => {
             if (!ve.audioPlayer) {
@@ -607,10 +631,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 ve.audioPlayer = null;
             }
         });
-        if (state.rangeControls) {
-            const el = state.rangeControls.playButton?.closest('.quran-range-controls');
-            if (el) el.remove();
-            state.rangeControls = null;
+        if (state.rangeControls && state.rangeControls.audioControls) {
+            state.rangeControls.audioControls.forEach(el => el.style.display = 'none');
         }
     }
 
@@ -683,7 +705,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }));
     }
 
-    async renderQuranWithTajweed(source, el, isInlineWord = false, reciter = DEFAULT_RECITER, audioEnabled = false, translationEnabled = false, transliterationEnabled = false) {
+    async renderQuranWithTajweed(source, el, isInlineWord = false, reciter = DEFAULT_RECITER, audioEnabled = false, translationEnabled = false, transliterationEnabled = false, ctx = null) {
         // For inline words, use simpler styling
         if (isInlineWord) {
             const wordSpan = el.createSpan({ cls: 'quran-word-inline' });
@@ -697,7 +719,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         // Parse the source to get surah:verse references
         // First check if there's a verse reference anywhere in the source
-        const verseRef = this.extractVerseReference(source);
+        let refSource = source;
+        if (!this.extractVerseReference(refSource) && !refSource.trim()) {
+            refSource = '1:1';
+        }
+        const verseRef = this.extractVerseReference(refSource);
         
         if (verseRef) {
             const surah = verseRef.surah;
@@ -740,29 +766,38 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             }
             updateVerseOptions(startVerse);
 
-            surahSelect.onchange = () => {
+            surahSelect.onchange = async () => {
                 const newSurah = parseInt(surahSelect.value);
                 const s = SURAHS.find(x => x.number === newSurah);
                 if (!s) return;
+                const st = container._quranState || {};
+                const newRef = `${newSurah}:1-${Math.min(s.ayahs, 10)}`;
                 el.innerHTML = '';
-                this.renderQuranWithTajweed(`${newSurah}:1-${Math.min(s.ayahs, 10)}`, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled);
+                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled);
+                await this.updateSourceRange(container, newRef);
             };
 
-            fromSelect.onchange = () => {
+            fromSelect.onchange = async () => {
                 const f = parseInt(fromSelect.value);
                 const t = Math.max(f, parseInt(toSelect.value));
                 toSelect.value = t;
                 updateVerseOptions(f);
+                const st = container._quranState || {};
+                const newRef = `${surah}:${f}-${t}`;
                 el.innerHTML = '';
-                this.renderQuranWithTajweed(`${surah}:${f}-${t}`, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled);
+                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled);
+                await this.updateSourceRange(container, newRef);
             };
 
-            toSelect.onchange = () => {
+            toSelect.onchange = async () => {
                 const f = parseInt(fromSelect.value);
                 const t = Math.max(f, parseInt(toSelect.value));
                 toSelect.value = t;
+                const st = container._quranState || {};
+                const newRef = `${surah}:${f}-${t}`;
                 el.innerHTML = '';
-                this.renderQuranWithTajweed(`${surah}:${f}-${t}`, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled);
+                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled);
+                await this.updateSourceRange(container, newRef);
             };
 
             const arabicCacheKey = `quran-surah-${surah}`;
@@ -872,6 +907,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 translationVerses,
                 transliterationVerses,
                 rangeControls: null,
+                ctx,
             };
             container._quranState = state;
 
@@ -915,12 +951,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 verseElements.push({ div: verseDiv, translationDiv, transliterationDiv, audioPlayer });
             }
 
+            state.rangeControls = this.createRangePlaybackControls(
+                container, reciter, surah, startVerse, endVerse, arabicVerses, audioEnabled
+            );
+
             if (audioEnabled) {
-                if (arabicVerses.length > 1) {
-                    state.rangeControls = this.createRangePlaybackControls(
-                        container, reciter, surah, startVerse, endVerse, arabicVerses
-                    );
-                }
                 verseElements.forEach((ve, i) => {
                     const verse = arabicVerses[i];
                     const ap = this.createAudioPlayer(reciter, surah, verse.numberInSurah, ve.div, state.rangeControls);
@@ -932,6 +967,90 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             // It's raw text with Tajweed notation, just parse and display
             const verseDiv = container.createDiv({ cls: 'quran-verse' });
             verseDiv.innerHTML = this.parseTajweed(source);
+        }
+    }
+
+    async updateSourceParam(container, key, newVal) {
+        const st = container._quranState;
+        if (!st || !st.ctx || !st.ctx.sourcePath) return;
+        const paramMap = {
+            translationEnabled: 'translation',
+            transliterationEnabled: 'transliteration',
+            audioEnabled: 'audio'
+        };
+        const paramName = paramMap[key];
+        if (!paramName) return;
+        const paramValue = newVal ? 'on' : 'off';
+
+        const file = this.app.vault.getAbstractFileByPath(st.ctx.sourcePath);
+        if (!file) return;
+        let content;
+        try {
+            content = await this.app.vault.read(file);
+        } catch (e) {
+            return;
+        }
+        const lines = content.split('\n');
+
+        let searchStart = 0;
+        let searchEnd = lines.length;
+        try {
+            const info = st.ctx.getSectionInfo(container);
+            if (info) {
+                searchStart = info.lineStart;
+                searchEnd = Math.min(info.lineEnd + 1, lines.length);
+            }
+        } catch (e) {}
+
+        for (let i = searchStart; i < searchEnd; i++) {
+            if (lines[i].trim().startsWith('```quran')) {
+                for (let j = i + 1; j < searchEnd; j++) {
+                    if (lines[j].trim() === '```') break;
+                    const regex = new RegExp(`${paramName}="(on|off)"`, 'i');
+                    if (regex.test(lines[j])) {
+                        lines[j] = lines[j].replace(regex, `${paramName}="${paramValue}"`);
+                        await this.app.vault.modify(file, lines.join('\n'));
+                        return;
+                    }
+                }
+                lines.splice(i + 1, 0, `${paramName}="${paramValue}"`);
+                await this.app.vault.modify(file, lines.join('\n'));
+                return;
+            }
+        }
+    }
+
+    async updateSourceRange(container, newRef) {
+        const st = container._quranState;
+        if (!st || !st.ctx || !st.ctx.sourcePath) return;
+        const oldRef = `${st.surah}:${st.startVerse}${st.startVerse !== st.endVerse ? '-' + st.endVerse : ''}`;
+        const file = this.app.vault.getAbstractFileByPath(st.ctx.sourcePath);
+        if (!file) return;
+        let content;
+        try {
+            content = await this.app.vault.read(file);
+        } catch (e) { return; }
+        const lines = content.split('\n');
+        let searchStart = 0;
+        let searchEnd = lines.length;
+        try {
+            const info = st.ctx.getSectionInfo(container);
+            if (info) {
+                searchStart = info.lineStart;
+                searchEnd = Math.min(info.lineEnd + 1, lines.length);
+            }
+        } catch (e) {}
+        for (let i = searchStart; i < searchEnd; i++) {
+            if (lines[i].trim().startsWith('```quran')) {
+                for (let j = i + 1; j < searchEnd; j++) {
+                    if (lines[j].trim() === '```') break;
+                    if (lines[j].trim() === oldRef) {
+                        lines[j] = lines[j].replace(oldRef, newRef);
+                        await this.app.vault.modify(file, lines.join('\n'));
+                        return;
+                    }
+                }
+            }
         }
     }
 
