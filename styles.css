@@ -354,7 +354,7 @@
 
 .quran-verse-text {
     cursor: pointer;
-    unicode-bidi: bidi-override;
+    direction: rtl;
     overflow-wrap: anywhere;
     word-break: break-word;
     text-align: right;
