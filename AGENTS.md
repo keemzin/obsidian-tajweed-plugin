@@ -97,15 +97,15 @@ The `experimentalV4Tajweed` setting (off by default) enables rendering using the
 Setting enabled → getV4GlyphData() → fetch JSON from fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json
   → cache in localStorage (key: quran-v4-glyphs)
   → collect all unique page numbers across the verse range
-  → ensureV4FontLoaded(page) → inject @font-face for each page font from Tarteel CDN
+  → ensureV4FontLoaded(page) → inject @font-face for each page font from fonts.quran.ws
   → renderV4GlyphText() → set PUA glyph text + per-page font-family inline
 ```
 
-**Font source:** `https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/woff2/p{N}.woff2`
+**Font source:** `https://fonts.quran.ws/assets/fonts/qpc-hafs-v4/QCF4_Hafs_{NN}_W.ttf` (47 per-page TTF fonts, named `QCF4_Hafs_01_W` through `QCF4_Hafs_47_W`)
 **Glyph data source:** `https://fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json`
 
 **Key details:**
-- 604 per-page font files, dynamically loaded as needed
+- 47 per-page font files (each covers a range of ~13 pages, not 1-to-1 with 604 mushaf pages), dynamically loaded as needed
 - JSON provides `{surah, ayah, chunks: [{p, family, file, text}]}` mapping — 6236 verses total
 - `text` field contains PUA (Private Use Area) codepoints rendered via the per-page font
 - Falls back to standard `parseTajweed()` CSS coloring if V4 data fails to load or a specific verse is missing from the data

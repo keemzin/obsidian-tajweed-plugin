@@ -713,9 +713,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
     async ensureV4FontLoaded(page) {
         if (!this._v4FontsLoaded) this._v4FontsLoaded = new Set();
         if (this._v4FontsLoaded.has(page)) return;
-        const fontFamily = `p${page}-v4-tajweed`;
+        const pageStr = String(page).padStart(2, '0');
+        const fontFamily = `QCF4_Hafs_${pageStr}_W`;
         const style = document.createElement('style');
-        style.textContent = `@font-face{font-family:'${fontFamily}';src:url('https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/woff2/p${page}.woff2') format('woff2'),url('https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/ttf/p${page}.ttf') format('truetype');font-display:swap}`;
+        style.textContent = `@font-face{font-family:'${fontFamily}';src:url('https://fonts.quran.ws/assets/fonts/qpc-hafs-v4/QCF4_Hafs_${pageStr}_W.ttf') format('truetype');font-display:swap}`;
         document.head.appendChild(style);
         this._v4FontsLoaded.add(page);
         await document.fonts.load(`1em '${fontFamily}'`);
@@ -723,12 +724,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
     renderV4GlyphText(textSpan, chunks) {
         if (chunks.length === 1) {
-            textSpan.style.fontFamily = `p${chunks[0].p}-v4-tajweed`;
+            textSpan.style.fontFamily = chunks[0].family;
             textSpan.textContent = chunks[0].text;
         } else {
             chunks.forEach(c => {
                 const span = document.createElement('span');
-                span.style.fontFamily = `p${c.p}-v4-tajweed`;
+                span.style.fontFamily = c.family;
                 span.textContent = c.text;
                 textSpan.appendChild(span);
             });
