@@ -697,43 +697,43 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }
     }
 
-    async fetchV4WordData(surah) {
-        const cacheKey = `quran-v4-words-${surah}`;
-        let cached = this.getCache(cacheKey);
-        if (cached) return cached;
-        const data = await this.fetchJson(`https://api.quran.com/api/v4/verses/by_chapter/${surah}?words=true&word_translation_language=en&per_page=300`);
-        const wordData = {};
-        for (const verse of data.verses) {
-            const vNum = verse.verse_key.split(':')[1];
-            const words = verse.words.filter(w => w.char_type_name !== 'end').map(w => ({
-                code: w.code_v1,
-                page: w.page_number
-            }));
-            wordData[vNum] = words;
+    async getV4GlyphData() {
+        let cached = this.getCache('quran-v4-glyphs');
+        if (cached && cached.lookup) return cached;
+        const data = await this.fetchJson('https://fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json');
+        const lookup = {};
+        for (const ayah of data.ayat) {
+            lookup[`${ayah.surah}_${ayah.ayah}`] = ayah.chunks;
         }
-        this.setCache(cacheKey, wordData);
-        return wordData;
+        const result = { lookup, total: data.total };
+        this.setCache('quran-v4-glyphs', result);
+        return result;
     }
 
     async ensureV4FontLoaded(page) {
         if (!this._v4FontsLoaded) this._v4FontsLoaded = new Set();
         if (this._v4FontsLoaded.has(page)) return;
-        const fontFamily = 'v4-p' + page;
+        const pageStr = String(page).padStart(2, '0');
+        const fontFamily = `QCF4_Hafs_${pageStr}_W`;
         const style = document.createElement('style');
-        style.textContent = `@font-face{font-family:'${fontFamily}';src:url('https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/woff2/p${page}.woff2') format('woff2');font-display:swap}`;
+        style.textContent = `@font-face{font-family:'${fontFamily}';src:url('https://fonts.quran.ws/assets/fonts/qpc-hafs-v4/QCF4_Hafs_${pageStr}_W.ttf') format('truetype');font-display:swap}`;
         document.head.appendChild(style);
         this._v4FontsLoaded.add(page);
         await document.fonts.load(`1em '${fontFamily}'`);
     }
 
-    renderV4ColoredText(textSpan, words) {
-        words.forEach((w, i) => {
-            if (i > 0) textSpan.appendChild(document.createTextNode(' '));
-            const span = document.createElement('span');
-            span.style.fontFamily = 'v4-p' + w.page;
-            span.textContent = w.code;
-            textSpan.appendChild(span);
-        });
+    renderV4GlyphText(textSpan, chunks) {
+        if (chunks.length === 1) {
+            textSpan.style.fontFamily = chunks[0].family;
+            textSpan.textContent = chunks[0].text;
+        } else {
+            chunks.forEach(c => {
+                const span = document.createElement('span');
+                span.style.fontFamily = c.family;
+                span.textContent = c.text;
+                textSpan.appendChild(span);
+            });
+        }
     }
 
     async rerenderAll() {
@@ -955,21 +955,22 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             };
             container._quranState = state;
 
-            let v4WordData = null;
+            let v4GlyphData = null;
             if (this.settings.experimentalV4Tajweed) {
                 try {
-                    v4WordData = await this.fetchV4WordData(surah);
+                    v4GlyphData = await this.getV4GlyphData();
                     const allPages = new Set();
                     for (const verse of arabicVerses) {
-                        const words = v4WordData[verse.numberInSurah];
-                        if (words) words.forEach(w => allPages.add(w.page));
+                        const key = `${surah}_${verse.numberInSurah}`;
+                        const chunks = v4GlyphData.lookup[key];
+                        if (chunks) chunks.forEach(c => allPages.add(c.p));
                     }
                     if (allPages.size > 0) {
                         await Promise.all([...allPages].map(p => this.ensureV4FontLoaded(p).catch(() => {})));
                     }
                 } catch (e) {
                     console.warn('⚠️ V4 Tajweed font init failed, falling back to standard rendering:', e);
-                    v4WordData = null;
+                    v4GlyphData = null;
                 }
             }
 
@@ -981,10 +982,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 const textContainer = verseDiv.createDiv({ cls: 'quran-text-container' });
 
                 const textSpan = textContainer.createSpan({ cls: 'quran-verse-text' });
-                if (v4WordData) {
-                    const words = v4WordData[verse.numberInSurah];
-                    if (words && words.length > 0) {
-                        this.renderV4ColoredText(textSpan, words);
+                if (v4GlyphData) {
+                    const key = `${surah}_${verse.numberInSurah}`;
+                    const chunks = v4GlyphData.lookup[key];
+                    if (chunks && chunks.length > 0) {
+                        this.renderV4GlyphText(textSpan, chunks);
                     } else {
                         textSpan.innerHTML = this.parseTajweed(verse.text);
                     }

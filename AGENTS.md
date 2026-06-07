@@ -90,29 +90,26 @@ Surah/verse dropdown changed
 
 ### Experimental QCF V4 Tajweed
 
-The `experimentalV4Tajweed` setting (off by default) enables rendering using the **QCF V4 Tajweed color font** from the Tarteel CDN. Tajweed colors are baked into the font's COLR/CPAL tables instead of being applied via CSS `<span>` tags, giving automatic per-letter coloring identical to Quran.com's Tajweed Mushaf.
+The `experimentalV4Tajweed` setting (off by default) enables rendering using the **QCF V4 page-glyph font** from fonts.quran.ws. These fonts provide authentic Madani Mushaf calligraphy using pre-shaped PUA (Private Use Area) codepoints per verse. Unlike the standard mode, colors are NOT applied (the fonts do not have embedded color tables) — this mode prioritises authentic calligraphy over colouring. Tajweed marks are present in the calligraphy itself.
 
 **Data flow:**
 ```
-Setting enabled → fetchV4WordData(surah) → fetch word data from Quran.com API with &words=true
-  → cache in localStorage (key: quran-v4-words-{surah})
+Setting enabled → getV4GlyphData() → fetch JSON from fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json
+  → cache in localStorage (key: quran-v4-glyphs)
   → collect all unique page numbers across the verse range
-  → ensureV4FontLoaded(page) → inject @font-face for each per-mushaf-page font from Tarteel CDN
-  → renderV4ColoredText() → render each word with code_v1 codepoint + per-page font-family
-  → COLR/CPAL tables in the font automatically color tajweed rules
+  → ensureV4FontLoaded(page) → inject @font-face for each page font from fonts.quran.ws
+  → renderV4GlyphText() → set PUA glyph text + per-page font-family inline
 ```
 
-**Font source:** `https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/woff2/p{N}.woff2` (604 per-mushaf-page woff2 fonts)
-**Word data source:** Quran.com API v4 — `https://api.quran.com/api/v4/verses/by_chapter/{surah}?words=true&word_translation_language=en&per_page=300`
+**Font source:** `https://fonts.quran.ws/assets/fonts/qpc-hafs-v4/QCF4_Hafs_{NN}_W.ttf` (47 per-group TTF fonts)
+**Glyph data source:** `https://fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json` — 6236 verses, each with `chunks: [{p, family, file, text}]` where `text` contains PUA codepoints
 
 **Key details:**
-- 604 per-mushaf-page woff2 fonts, dynamically loaded as needed
-- Each word from the API has `code_v1` (Arabic Presentation Form codepoint) and `page_number` (1-604)
-- Font's COLR/CPAL tables apply tajweed colors automatically — no CSS color spans needed
-- Words rendered individually with per-page `font-family: v4-p{N}` and space separators
-- Falls back to standard `parseTajweed()` CSS coloring if V4 data fails to load or a verse is missing
+- 47 per-group font files (each covers a ~13-page range), loaded as needed
+- PUA codepoints encode pre-shaped words for accurate page-like rendering
+- Falls back to standard `parseTajweed()` CSS coloring if V4 data fails to load
+- Wrapping on mobile requires `unicode-bidi: bidi-override` and `overflow-wrap: anywhere` on `.quran-verse-text`
 - Audio, translation, transliteration, nav bar all work identically in V4 mode
-- Wrapping requires `unicode-bidi: bidi-override` and `overflow-wrap: anywhere` on `.quran-verse-text`
 
 **Adding to settings:** Follow the standard pattern (default in `onload()`, load in `loadSettings()`, save in `saveSettings()`, UI in `QuranTajweedSettingTab.display()`).
 
