@@ -1,7 +1,7 @@
 {
   "id": "quran-tajweed",
   "name": "Quran Tajweed",
-  "version": "1.2.0",
+  "version": "1.2.0-beta",
   "minAppVersion": "0.15.0",
   "description": "Display Quranic text with Tajweed colors using Uthmanic Hafs font, with continuous audio playback and customizable settings",
   "author": "Your Name",
