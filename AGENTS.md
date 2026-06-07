@@ -88,6 +88,32 @@ Surah/verse dropdown changed
 - **Tafsir**: fetched from `api.islamic.app/v1/verses/by_key/{surah}:{verse}?tafsirs={slug}`, centered popover
 - **`getSectionInfo`** wrapped in try-catch for mobile compatibility
 
+### Experimental QCF V4 Tajweed
+
+The `experimentalV4Tajweed` setting (off by default) enables rendering using the **QCF V4 Tajweed glyph-based font** from the King Fahd Complex Madani Mushaf. Tajweed colors are baked into the font glyphs themselves instead of being applied via CSS `<span>` tags.
+
+**Data flow:**
+```
+Setting enabled → getV4GlyphData() → fetch JSON from fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json
+  → cache in localStorage (key: quran-v4-glyphs)
+  → collect all unique page numbers across the verse range
+  → ensureV4FontLoaded(page) → inject @font-face for each page font from Tarteel CDN
+  → renderV4GlyphText() → set PUA glyph text + per-page font-family inline
+```
+
+**Font source:** `https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/woff2/p{N}.woff2`
+**Glyph data source:** `https://fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json`
+
+**Key details:**
+- 604 per-page font files, dynamically loaded as needed
+- JSON provides `{surah, ayah, chunks: [{p, family, file, text}]}` mapping — 6236 verses total
+- `text` field contains PUA (Private Use Area) codepoints rendered via the per-page font
+- Falls back to standard `parseTajweed()` CSS coloring if V4 data fails to load or a specific verse is missing from the data
+- Audio, translation, transliteration, nav bar all work identically in V4 mode
+- No CSS changes needed — inline `font-family` overrides container styling
+
+**Adding to settings:** Follow the standard pattern (default in `onload()`, load in `loadSettings()`, save in `saveSettings()`, UI in `QuranTajweedSettingTab.display()`).
+
 ## Code Conventions
 
 - **No comments** in code — keep logic self-explanatory
