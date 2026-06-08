@@ -730,6 +730,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             chunks.forEach(c => {
                 const span = document.createElement('span');
                 span.style.fontFamily = c.family;
+                span.style.unicodeBidi = 'bidi-override';
+                span.style.direction = 'rtl';
                 span.textContent = c.text;
                 textSpan.appendChild(span);
             });

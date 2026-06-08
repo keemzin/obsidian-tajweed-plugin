@@ -355,9 +355,11 @@
 .quran-verse-text {
     cursor: pointer;
     direction: rtl;
+    unicode-bidi: bidi-override;
     overflow-wrap: anywhere;
     word-break: break-word;
     text-align: right;
+    flex: 1;
 }
 
 .quran-tafsir-popover {
