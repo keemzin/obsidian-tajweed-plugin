@@ -101,6 +101,20 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         // Load saved settings
         await this.loadSettings();
 
+        // Load QPC V4 glyph data from bundled JSON
+        this._qpcV4Data = null;
+        try {
+            const adapter = this.app.vault.adapter;
+            const pluginDir = this.manifest.dir;
+            const raw = await adapter.read(`${pluginDir}/data/qpc-v4.json`);
+            this._qpcV4Data = JSON.parse(raw);
+        } catch (e) {
+            console.warn('⚠️ Could not load qpc-v4.json:', e);
+        }
+
+        this._memCache = {};
+        this._v4PageFontsLoaded = new Set();
+
         // Add settings tab
         this.addSettingTab(new QuranTajweedSettingTab(this.app, this));
 
@@ -268,6 +282,78 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             // Use class instead of inline style for theme support
             return `<span class="tajweed-${className}">${content}</span>`;
         });
+    }
+
+    ensureQulV4FontLoaded(page) {
+        if (!this._v4PageFontsLoaded) this._v4PageFontsLoaded = new Set();
+        if (this._v4PageFontsLoaded.has(page)) return Promise.resolve();
+        this._v4PageFontsLoaded.add(page);
+        const family = `qul-v4-p${page}`;
+        const url = `https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/ttf/p${page}.ttf`;
+        const style = document.createElement('style');
+        style.textContent = `@font-face{font-family:'${family}';src:url('${url}') format('truetype');font-display:block}`;
+        document.head.appendChild(style);
+        return document.fonts.load(`1em '${family}'`).catch(() => {});
+    }
+
+    renderQulV4Verse(textSpan, surah, verse, pageMap) {
+        const ayah = verse.numberInSurah;
+        let w = 1;
+        let rendered = 0;
+        while (true) {
+            const key = `${surah}:${ayah}:${w}`;
+            const glyphEntry = this._qpcV4Data[key];
+            if (!glyphEntry) break;
+            const page = pageMap[`${ayah}:${w}`];
+            if (!page) { w++; continue; }
+
+            const tajweedClass = this.getTajweedClassForWord(verse.text, w);
+            const wordSpan = document.createElement('span');
+            if (tajweedClass) wordSpan.className = tajweedClass;
+            wordSpan.style.fontFamily = `'qul-v4-p${page}', serif`;
+            wordSpan.style.unicodeBidi = 'bidi-override';
+            wordSpan.textContent = glyphEntry.text;
+            textSpan.appendChild(wordSpan);
+            textSpan.appendChild(document.createTextNode(' '));
+            w++;
+            rendered++;
+        }
+        return rendered > 0;
+    }
+
+    getTajweedClassForWord(verseText, wordPos) {
+        const tokens = [];
+        const re = /\[([a-z])(?::\d+)?\[([^\]]+)\]/g;
+        let last = 0, m;
+        while ((m = re.exec(verseText)) !== null) {
+            if (m.index > last) tokens.push({ type: 'text', val: verseText.slice(last, m.index) });
+            tokens.push({ type: 'tag', rule: m[1] });
+            last = re.lastIndex;
+        }
+        if (last < verseText.length) tokens.push({ type: 'text', val: verseText.slice(last) });
+
+        const words = [];
+        let cur = { classes: [], hasText: false };
+        for (const tok of tokens) {
+            if (tok.type === 'tag') {
+                const cls = RULE_MAP[tok.rule];
+                if (cls) cur.classes.push(`tajweed-${cls}`);
+            } else {
+                const parts = tok.val.split(/(\s+)/);
+                for (const p of parts) {
+                    if (/^\s+$/.test(p)) {
+                        words.push(cur);
+                        cur = { classes: [], hasText: false };
+                    } else if (p) {
+                        cur.hasText = true;
+                    }
+                }
+            }
+        }
+        words.push(cur);
+        const filtered = words.filter(w => w.hasText || w.classes.length);
+        const entry = filtered[wordPos - 1];
+        return entry ? (entry.classes[0] || null) : null;
     }
 
     getAudioUrl(reciter, surah, verse) {
@@ -847,27 +933,54 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             };
 
             const arabicCacheKey = `quran-surah-${surah}`;
+            const pageMapCacheKey = `quran-surah-${surah}-page-map`;
             const transInfo = TRANSLATION_VERSIONS.find(t => t.id === this.settings.translationVersion) || TRANSLATION_VERSIONS[0];
             const transCacheKey = `quran-surah-${surah}-trans-${transInfo.source}-${this.settings.translationVersion}`;
-            let arabicCached = this.getCache(arabicCacheKey);
-            let transCached = this.getCache(transCacheKey);
+            let arabicCached = this._memCache[arabicCacheKey] || this.getCache(arabicCacheKey);
+            let pageMapCached = this.settings.experimentalV4Tajweed
+                ? (this._memCache[pageMapCacheKey] || this.getCache(pageMapCacheKey))
+                : null;
+            let transCached = this._memCache[transCacheKey] || this.getCache(transCacheKey);
 
-            if (!arabicCached) {
+            const needsFetch = !arabicCached || (this.settings.experimentalV4Tajweed && !pageMapCached);
+            if (needsFetch) {
                 const loading = container.createDiv({ cls: 'quran-loading' });
                 loading.textContent = 'Loading verses...';
 
                 try {
-                    const [arabicData, transliterationFetchData] = await Promise.all([
-                        this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/quran-tajweed`),
-                        this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/en.transliteration`).catch(e => {
-                            console.warn('⚠️ Transliteration fetch failed:', e);
-                            return null;
-                        })
-                    ]);
+                    const fetches = [];
+                    fetches.push(arabicCached
+                        ? Promise.resolve(null)
+                        : this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/quran-tajweed`)
+                    );
+                    fetches.push(arabicCached
+                        ? Promise.resolve(null)
+                        : this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/en.transliteration`).catch(() => null)
+                    );
+                    fetches.push((this.settings.experimentalV4Tajweed && !pageMapCached)
+                        ? this.fetchJson(`https://api.qurancdn.com/api/qdc/verses/by_chapter/${surah}?words=true&word_fields=page_number&per_page=300`).catch(() => null)
+                        : Promise.resolve(null)
+                    );
+
+                    const [arabicData, transliterationFetchData, pageMapData] = await Promise.all(fetches);
 
                     loading.remove();
-                    arabicCached = { arabicData, transliterationFetchData };
-                    this.setCache(arabicCacheKey, arabicCached);
+                    if (arabicData) {
+                        arabicCached = { arabicData, transliterationFetchData };
+                        this._memCache[arabicCacheKey] = arabicCached;
+                        this.setCache(arabicCacheKey, arabicCached);
+                    }
+                    if (pageMapData) {
+                        const map = {};
+                        for (const verse of (pageMapData.verses || [])) {
+                            for (const word of (verse.words || [])) {
+                                map[`${verse.verse_number}:${word.position}`] = word.page_number;
+                            }
+                        }
+                        pageMapCached = { map };
+                        this._memCache[pageMapCacheKey] = pageMapCached;
+                        this.setCache(pageMapCacheKey, pageMapCached);
+                    }
                 } catch (error) {
                     console.error('❌ Failed to fetch verses:', error);
                     loading.remove();
@@ -904,6 +1017,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                         transCached = { translationData: null };
                     }
                 }
+                this._memCache[transCacheKey] = transCached;
                 this.setCache(transCacheKey, transCached);
             }
 
@@ -957,23 +1071,20 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             };
             container._quranState = state;
 
-            let v4GlyphData = null;
-            if (this.settings.experimentalV4Tajweed) {
-                try {
-                    v4GlyphData = await this.getV4GlyphData();
-                    const allPages = new Set();
-                    for (const verse of arabicVerses) {
-                        const key = `${surah}_${verse.numberInSurah}`;
-                        const chunks = v4GlyphData.lookup[key];
-                        if (chunks) chunks.forEach(c => allPages.add(c.p));
+            let pageMap = (this.settings.experimentalV4Tajweed && pageMapCached) ? pageMapCached.map : null;
+
+            if (this.settings.experimentalV4Tajweed && pageMap && this._qpcV4Data) {
+                const allPages = new Set();
+                for (const verse of arabicVerses) {
+                    const a = verse.numberInSurah;
+                    let w = 1;
+                    while (this._qpcV4Data[`${surah}:${a}:${w}`]) {
+                        const pg = pageMap[`${a}:${w}`];
+                        if (pg) allPages.add(pg);
+                        w++;
                     }
-                    if (allPages.size > 0) {
-                        await Promise.all([...allPages].map(p => this.ensureV4FontLoaded(p).catch(() => {})));
-                    }
-                } catch (e) {
-                    console.warn('⚠️ V4 Tajweed font init failed, falling back to standard rendering:', e);
-                    v4GlyphData = null;
                 }
+                await Promise.all([...allPages].map(p => this.ensureQulV4FontLoaded(p).catch(() => {})));
             }
 
             for (let i = 0; i < arabicVerses.length; i++) {
@@ -984,15 +1095,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 const textContainer = verseDiv.createDiv({ cls: 'quran-text-container' });
 
                 const textSpan = textContainer.createSpan({ cls: 'quran-verse-text' });
-                if (v4GlyphData) {
-                    const key = `${surah}_${verse.numberInSurah}`;
-                    const chunks = v4GlyphData.lookup[key];
-                    if (chunks && chunks.length > 0) {
-                        this.renderV4GlyphText(textSpan, chunks);
-                    } else {
-                        textSpan.innerHTML = this.parseTajweed(verse.text);
-                    }
-                } else {
+                let rendered = false;
+                if (this.settings.experimentalV4Tajweed && pageMap && this._qpcV4Data) {
+                    rendered = this.renderQulV4Verse(textSpan, surah, verse, pageMap);
+                }
+                if (!rendered) {
                     textSpan.innerHTML = this.parseTajweed(verse.text);
                 }
                 textSpan.addEventListener('click', (e) => {
@@ -1344,12 +1451,12 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 });
             });
 
-        // Section: Experimental
-        containerEl.createEl('h3', { text: '🧪 Experimental' });
+        // Section: Font Style
+        containerEl.createEl('h3', { text: '🖋️ Font Style' });
 
         new Setting(containerEl)
-            .setName('QCF V4 Tajweed Font (experimental)')
-            .setDesc('Use the official Madani Mushaf V4 font with built-in Tajweed colors. Fetches glyph data from fonts.quran.ws and page fonts from Tarteel CDN. Disables CSS-based Tajweed coloring since colors are in the font.')
+            .setName('QCF V4 Tajweed Font')
+            .setDesc('Render Quranic text using the QPC V4 Mushaf calligraphy font with Tajweed colors. Uses bundled glyph data (qpc-v4.json) and loads page fonts from Tarteel CDN on demand.')
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.experimentalV4Tajweed);
                 toggle.onChange(async (value) => {
@@ -1357,6 +1464,25 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                     await this.plugin.rerenderAll();
                 });
+            });
+
+        // Section: Cache
+        containerEl.createEl('h3', { text: '🗑️ Cache' });
+
+        new Setting(containerEl)
+            .setName('Clear Cache')
+            .setDesc('Remove all cached verse data. Use this if text looks wrong after an update.')
+            .addButton(btn => {
+                btn.setButtonText('Clear Cache')
+                    .setWarning()
+                    .onClick(() => {
+                        const keys = Object.keys(localStorage).filter(k => k.startsWith('quran-'));
+                        keys.forEach(k => localStorage.removeItem(k));
+                        if (this.plugin._memCache) this.plugin._memCache = {};
+                        btn.setButtonText(`Cleared ${keys.length} entries`);
+                        btn.setDisabled(true);
+                        setTimeout(() => { btn.setButtonText('Clear Cache'); btn.setDisabled(false); }, 3000);
+                    });
             });
 
         // Section: About
