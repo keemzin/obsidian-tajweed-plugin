@@ -309,10 +309,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
             const tajweedClass = this.getTajweedClassForWord(verse.text, w);
             const wordSpan = document.createElement('span');
-            if (tajweedClass) wordSpan.className = tajweedClass;
             wordSpan.style.fontFamily = `'qul-v4-p${page}', serif`;
             wordSpan.style.unicodeBidi = 'bidi-override';
             wordSpan.textContent = glyphEntry.text;
+            if (tajweedClass) {
+                wordSpan.className = tajweedClass;
+            }
             textSpan.appendChild(wordSpan);
             textSpan.appendChild(document.createTextNode(' '));
             w++;
@@ -780,47 +782,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             localStorage.setItem(key, JSON.stringify(data));
         } catch {
             // localStorage full or unavailable — ignore
-        }
-    }
-
-    async getV4GlyphData() {
-        let cached = this.getCache('quran-v4-glyphs');
-        if (cached && cached.lookup) return cached;
-        const data = await this.fetchJson('https://fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json');
-        const lookup = {};
-        for (const ayah of data.ayat) {
-            lookup[`${ayah.surah}_${ayah.ayah}`] = ayah.chunks;
-        }
-        const result = { lookup, total: data.total };
-        this.setCache('quran-v4-glyphs', result);
-        return result;
-    }
-
-    async ensureV4FontLoaded(page) {
-        if (!this._v4FontsLoaded) this._v4FontsLoaded = new Set();
-        if (this._v4FontsLoaded.has(page)) return;
-        const pageStr = String(page).padStart(2, '0');
-        const fontFamily = `QCF4_Hafs_${pageStr}_W`;
-        const style = document.createElement('style');
-        style.textContent = `@font-face{font-family:'${fontFamily}';src:url('https://fonts.quran.ws/assets/fonts/qpc-hafs-v4/QCF4_Hafs_${pageStr}_W.ttf') format('truetype');font-display:swap}`;
-        document.head.appendChild(style);
-        this._v4FontsLoaded.add(page);
-        await document.fonts.load(`1em '${fontFamily}'`);
-    }
-
-    renderV4GlyphText(textSpan, chunks) {
-        if (chunks.length === 1) {
-            textSpan.style.fontFamily = chunks[0].family;
-            textSpan.textContent = chunks[0].text;
-        } else {
-            chunks.forEach(c => {
-                const span = document.createElement('span');
-                span.style.fontFamily = c.family;
-                span.style.unicodeBidi = 'bidi-override';
-                span.style.direction = 'rtl';
-                span.textContent = c.text;
-                textSpan.appendChild(span);
-            });
         }
     }
 
