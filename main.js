@@ -120,13 +120,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         // Register markdown post processor for code blocks with language "quran"
         this.registerMarkdownCodeBlockProcessor('quran', async (source, el, ctx) => {
-            // Parse optional parameters: ```quran reciter="ar.alafasy" audio="on" translation="on" transliteration="on"
             const reciter = this.parseReciterFromSource(source);
             const audioEnabled = this.parseAudioFromSource(source);
             const translationEnabled = this.parseTranslationFromSource(source);
             const transliterationEnabled = this.parseTransliterationFromSource(source);
+            const label = this.parseLabelFromSource(source);
             const actualSource = this.removeParameters(source);
-            await this.renderQuranWithTajweed(actualSource, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled, ctx);
+            await this.renderQuranWithTajweed(actualSource, el, false, reciter, audioEnabled, translationEnabled, transliterationEnabled, ctx, label);
         });
 
         // Register markdown post processor for code blocks with language "tajweed"
@@ -158,6 +158,14 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                         editor.replaceSelection('```quran\naudio="on"\ntranslation="on"\ntransliteration="on"\n1:1\n```\n');
                     });
             });
+        }));
+
+        this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
+            setTimeout(() => this.buildIndexFromFile(), 400);
+        }));
+
+        this.registerEvent(this.app.workspace.on('layout-change', () => {
+            setTimeout(() => this.buildIndexFromFile(), 400);
         }));
     }
 
@@ -200,12 +208,17 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         return this.settings.defaultTransliteration;
     }
 
+    parseLabelFromSource(source) {
+        const match = source.match(/label="([^"]+)"/i);
+        return match ? match[1] : null;
+    }
+
     removeParameters(source) {
-        // Remove all parameter patterns: reciter="..." audio="..." translation="..." transliteration="..."
         return source.replace(/reciter="[^"]+"\s*/g, '')
                     .replace(/audio="(on|off)"\s*/gi, '')
                     .replace(/translation="(on|off)"\s*/gi, '')
                     .replace(/transliteration="(on|off)"\s*/gi, '')
+                    .replace(/label="[^"]+"\s*/gi, '')
                     .trim();
     }
 
@@ -798,7 +811,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }));
     }
 
-    async renderQuranWithTajweed(source, el, isInlineWord = false, reciter = DEFAULT_RECITER, audioEnabled = false, translationEnabled = false, transliterationEnabled = false, ctx = null) {
+    async renderQuranWithTajweed(source, el, isInlineWord = false, reciter = DEFAULT_RECITER, audioEnabled = false, translationEnabled = false, transliterationEnabled = false, ctx = null, customLabel = null) {
         // For inline words, use simpler styling
         if (isInlineWord) {
             const wordSpan = el.createSpan({ cls: 'quran-word-inline' });
@@ -809,6 +822,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const container = el.createDiv({ cls: 'quran-tajweed-container' });
         container.style.fontSize = `${this.settings.fontSize}em`;
         container.style.lineHeight = `${this.settings.lineSpacing}`;
+        if (this.settings.experimentalV4Tajweed) {
+            container.classList.add('quran-v4-mode');
+        }
 
         // Parse the source to get surah:verse references
         // First check if there's a verse reference anywhere in the source
@@ -1106,11 +1122,186 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     ve.audioPlayer = ap;
                 });
             }
+
+            const surahName = SURAHS.find(s => s.number === surah)?.name || `Surah ${surah}`;
+            container.dataset.quranRef = `${surah}:${startVerse}-${endVerse}`;
+            container.dataset.quranLabel = customLabel || surahName;
+            container.dataset.quranVerses = `${startVerse}–${endVerse}`;
+            setTimeout(() => this.buildIndexFromFile(), 100);
         } else {
             // It's raw text with Tajweed notation, just parse and display
             const verseDiv = container.createDiv({ cls: 'quran-verse' });
             verseDiv.innerHTML = this.parseTajweed(source);
         }
+    }
+
+    rebuildIndexFromDOM() {
+        this.buildIndexFromFile();
+    }
+
+    async buildIndexFromFile() {
+        const { MarkdownView } = require('obsidian');
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view) return;
+
+        const file = view.file;
+        if (!file) return;
+
+        let content;
+        try {
+            content = await this.app.vault.read(file);
+        } catch (e) { return; }
+
+        const blocks = [];
+        const lines = content.split('\n');
+        let inBlock = false;
+        let blockLines = [];
+
+        for (const line of lines) {
+            if (!inBlock && line.trim().startsWith('```quran')) {
+                inBlock = true;
+                blockLines = [];
+            } else if (inBlock && line.trim() === '```') {
+                inBlock = false;
+                const src = blockLines.join('\n');
+                const ref = this.extractVerseReference(this.removeParameters(src));
+                if (ref) {
+                    const surahName = SURAHS.find(s => s.number === ref.surah)?.name || `Surah ${ref.surah}`;
+                    const customLabel = this.parseLabelFromSource(src);
+                    blocks.push({
+                        label: customLabel || surahName,
+                        verses: `${ref.startVerse}–${ref.endVerse}`,
+                        ref: `${ref.surah}:${ref.startVerse}-${ref.endVerse}`
+                    });
+                }
+            } else if (inBlock) {
+                blockLines.push(line);
+            }
+        }
+
+        this.renderIndexFromBlocks(blocks);
+    }
+
+    renderIndexFromBlocks(blocks) {
+        const existing = document.querySelector('.quran-page-index');
+        if (existing?._scrollListeners) {
+            existing._scrollListeners.forEach(({ el, fn }) => el.removeEventListener('scroll', fn));
+        }
+
+        if (blocks.length < 1) {
+            if (existing) existing.remove();
+            return;
+        }
+
+        let index = existing || document.createElement('div');
+        if (!existing) {
+            index.className = 'quran-page-index';
+            document.body.appendChild(index);
+        }
+
+        index._blocks = blocks;
+        index._activeIdx = 0;
+        index._scrollListeners = [];
+
+        const getContainers = () =>
+            Array.from(document.querySelectorAll('.quran-tajweed-container[data-quran-ref]'));
+
+        const render = (activeIdx) => {
+            index.innerHTML = '';
+            index._activeIdx = activeIdx;
+
+            const slots = [activeIdx - 2, activeIdx - 1, activeIdx, activeIdx + 1, activeIdx + 2];
+            slots.forEach((idx, slot) => {
+                const item = document.createElement('div');
+                item.className = 'quran-index-item' + (slot === 2 ? ' quran-index-active' : '');
+
+                if (idx >= 0 && idx < blocks.length) {
+                    const b = blocks[idx];
+
+                    const dot = document.createElement('span');
+                    dot.className = 'quran-index-dot';
+                    item.appendChild(dot);
+
+                    const text = document.createElement('div');
+                    text.className = 'quran-index-text';
+
+                    const label = document.createElement('span');
+                    label.className = 'quran-index-label';
+                    label.textContent = b.label;
+
+                    const verses = document.createElement('span');
+                    verses.className = 'quran-index-verses';
+                    verses.textContent = b.verses;
+
+                    text.appendChild(label);
+                    text.appendChild(verses);
+                    item.appendChild(text);
+
+                    item.addEventListener('click', () => {
+                        const containers = getContainers();
+                        const target = containers.find(c => c.dataset.quranRef === b.ref)
+                            || containers[idx];
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            target.classList.add('quran-block-flash');
+                            setTimeout(() => target.classList.remove('quran-block-flash'), 800);
+                        }
+                    });
+                } else {
+                    item.classList.add('quran-index-ghost');
+                }
+
+                index.appendChild(item);
+            });
+
+            const counter = document.createElement('div');
+            counter.className = 'quran-index-counter';
+            counter.textContent = `${activeIdx + 1}/${blocks.length}`;
+            index.appendChild(counter);
+        };
+
+        const findActiveIdx = () => {
+            const containers = getContainers();
+            if (containers.length === 0) return 0;
+            const viewH = window.innerHeight;
+            let bestIdx = 0;
+            let bestScore = -Infinity;
+            containers.forEach((c, domIdx) => {
+                const rect = c.getBoundingClientRect();
+                if (rect.bottom < 0 || rect.top > viewH) return;
+                const visible = Math.min(rect.bottom, viewH) - Math.max(rect.top, 0);
+                if (visible > bestScore) {
+                    bestScore = visible;
+                    const ref = c.dataset.quranRef;
+                    const fileIdx = blocks.findIndex(b => b.ref === ref);
+                    bestIdx = fileIdx >= 0 ? fileIdx : domIdx;
+                }
+            });
+            return bestIdx;
+        };
+
+        const onScroll = () => {
+            const idx = findActiveIdx();
+            if (idx !== index._activeIdx) render(idx);
+        };
+
+        const addScrollListener = (target) => {
+            target.addEventListener('scroll', onScroll, { passive: true });
+            index._scrollListeners.push({ el: target, fn: onScroll });
+        };
+
+        addScrollListener(window);
+        const seen = new Set([window]);
+        document.querySelectorAll('.markdown-preview-view, .cm-scroller, .view-content').forEach(el => {
+            if (!seen.has(el)) { seen.add(el); addScrollListener(el); }
+        });
+
+        render(findActiveIdx());
+    }
+
+    refreshQuranIndex(el) {
+        setTimeout(() => this.buildIndexFromFile(), 50);
+        setTimeout(() => this.buildIndexFromFile(), 900);
     }
 
     async updateSourceParam(container, key, newVal) {
