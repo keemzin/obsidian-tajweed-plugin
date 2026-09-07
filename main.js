@@ -165,6 +165,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (existing?._scrollListeners) {
                 existing._scrollListeners.forEach(({ el, fn }) => el.removeEventListener('scroll', fn));
             }
+            if (existing?._docListeners) {
+                existing._docListeners.forEach(({ type, fn }) => document.removeEventListener(type, fn));
+            }
             if (existing) existing.remove();
             setTimeout(() => this.buildIndexFromFile(), 500);
             setTimeout(() => this.buildIndexFromFile(), 1500);
@@ -745,35 +748,57 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             bar.className = 'quran-mini-player';
             document.body.appendChild(bar);
 
-            let dragX = 0, dragY = 0, startX = 0, startY = 0, dragging = false;
+            const savedX = localStorage.getItem('quran-mini-x');
+            const savedY = localStorage.getItem('quran-mini-y');
+            if (savedX && savedY) {
+                const x = Math.max(0, Math.min(parseInt(savedX, 10), window.innerWidth - 220));
+                const y = Math.max(0, Math.min(parseInt(savedY, 10), window.innerHeight - 50));
+                bar.style.left = `${x}px`;
+                bar.style.top = `${y}px`;
+                bar.style.right = 'auto';
+                bar.style.bottom = 'auto';
+            }
+
+            let dragging = false;
+            let startX = 0;
+            let startY = 0;
 
             bar.addEventListener('pointerdown', (e) => {
                 if (e.target.closest('button')) return;
                 dragging = true;
-                bar.setPointerCapture(e.pointerId);
+                e.preventDefault();
                 const rect = bar.getBoundingClientRect();
                 startX = e.clientX - rect.left;
                 startY = e.clientY - rect.top;
-                bar.style.cursor = 'grabbing';
-                bar.style.userSelect = 'none';
-            });
+                bar.classList.add('quran-mini-dragging');
 
-            bar.addEventListener('pointermove', (e) => {
-                if (!dragging) return;
-                const x = e.clientX - startX;
-                const y = e.clientY - startY;
-                const maxX = window.innerWidth - bar.offsetWidth;
-                const maxY = window.innerHeight - bar.offsetHeight;
-                bar.style.left = `${Math.max(0, Math.min(x, maxX))}px`;
-                bar.style.top = `${Math.max(0, Math.min(y, maxY))}px`;
-                bar.style.right = 'auto';
-                bar.style.bottom = 'auto';
-            });
+                const onMove = (moveEv) => {
+                    if (!dragging) return;
+                    const x = moveEv.clientX - startX;
+                    const y = moveEv.clientY - startY;
+                    const maxX = window.innerWidth - bar.offsetWidth;
+                    const maxY = window.innerHeight - bar.offsetHeight;
+                    const clampedX = Math.max(0, Math.min(x, maxX));
+                    const clampedY = Math.max(0, Math.min(y, maxY));
+                    bar.style.left = `${clampedX}px`;
+                    bar.style.top = `${clampedY}px`;
+                    bar.style.right = 'auto';
+                    bar.style.bottom = 'auto';
+                    localStorage.setItem('quran-mini-x', `${clampedX}`);
+                    localStorage.setItem('quran-mini-y', `${clampedY}`);
+                };
 
-            bar.addEventListener('pointerup', () => {
-                dragging = false;
-                bar.style.cursor = 'grab';
-                bar.style.userSelect = '';
+                const onUp = () => {
+                    dragging = false;
+                    bar.classList.remove('quran-mini-dragging');
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    window.removeEventListener('pointercancel', onUp);
+                };
+
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+                window.addEventListener('pointercancel', onUp);
             });
         }
 
@@ -783,6 +808,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const curIdx = controls.currentVerseIndex;
 
         bar.innerHTML = '';
+
+        const grip = document.createElement('span');
+        grip.className = 'quran-mini-grip';
+        grip.innerHTML = '<svg viewBox="0 0 10 16" width="8" height="13" fill="currentColor"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="2" cy="14" r="1.5"/><circle cx="8" cy="14" r="1.5"/></svg>';
 
         const info = document.createElement('div');
         info.className = 'quran-mini-info';
@@ -827,6 +856,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         btns.appendChild(nextBtn);
         btns.appendChild(stopBtn);
 
+        bar.appendChild(grip);
         bar.appendChild(info);
         bar.appendChild(btns);
         bar.style.display = 'flex';
@@ -1362,6 +1392,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         if (existing?._scrollListeners) {
             existing._scrollListeners.forEach(({ el, fn }) => el.removeEventListener('scroll', fn));
         }
+        if (existing?._docListeners) {
+            existing._docListeners.forEach(({ type, fn }) => document.removeEventListener(type, fn));
+        }
 
         if (blocks.length < 1) {
             if (existing) existing.remove();
@@ -1374,135 +1407,399 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             document.body.appendChild(index);
         }
 
+        const savedSide = localStorage.getItem('quran-index-dock-side') || 'right';
+        const savedTop = localStorage.getItem('quran-index-dock-top');
+        if (savedSide === 'left') {
+            index.classList.add('quran-dock-left');
+            index.classList.remove('quran-dock-right');
+            index.style.left = '14px';
+            index.style.right = 'auto';
+        } else {
+            index.classList.add('quran-dock-right');
+            index.classList.remove('quran-dock-left');
+            index.style.left = 'auto';
+            index.style.right = '14px';
+        }
+        if (savedTop) {
+            const clamped = Math.max(140, Math.min(window.innerHeight - 140, parseInt(savedTop, 10)));
+            index.style.top = `${clamped}px`;
+            index.style.transform = 'none';
+        } else {
+            index.style.top = '50%';
+            index.style.transform = 'translateY(-50%)';
+        }
+
         index._blocks = blocks;
         index._activeIdx = 0;
         index._scrollListeners = [];
+        index._docListeners = [];
+        index.innerHTML = '';
+
+        const itemHeight = 42;
+        const wheelHeight = 210;
+        const halfH = wheelHeight / 2;
+        const padY = (wheelHeight - itemHeight) / 2;
+
+        const pill = document.createElement('div');
+        pill.className = 'quran-index-pill';
+
+        const pillDots = document.createElement('div');
+        pillDots.className = 'quran-index-pill-dots';
+        const numPillDots = Math.min(blocks.length, 5);
+        const pillDotElements = [];
+        for (let i = 0; i < numPillDots; i++) {
+            const d = document.createElement('span');
+            d.className = 'quran-index-pill-dot';
+            pillDots.appendChild(d);
+            pillDotElements.push(d);
+        }
+        pill.appendChild(pillDots);
+
+        let draggingPill = false;
+        let startClientX = 0;
+        let startClientY = 0;
+        let startLeft = 0;
+        let startTop = 0;
+        let didMovePill = false;
+
+        pill.addEventListener('pointerdown', (e) => {
+            draggingPill = true;
+            didMovePill = false;
+            e.preventDefault();
+            startClientX = e.clientX;
+            startClientY = e.clientY;
+            const rect = index.getBoundingClientRect();
+            startLeft = rect.left;
+            startTop = rect.top;
+            index.style.transition = 'none';
+            pill.classList.add('quran-dragging');
+
+            const onPillMove = (moveEv) => {
+                if (!draggingPill) return;
+                const dx = moveEv.clientX - startClientX;
+                const dy = moveEv.clientY - startClientY;
+                if (Math.hypot(dx, dy) > 4) didMovePill = true;
+                const curX = Math.max(10, Math.min(window.innerWidth - index.offsetWidth - 10, startLeft + dx));
+                const curY = Math.max(40, Math.min(window.innerHeight - index.offsetHeight - 40, startTop + dy));
+                index.style.left = `${curX}px`;
+                index.style.right = 'auto';
+                index.style.top = `${curY}px`;
+                index.style.transform = 'none';
+            };
+
+            const finishPillDrag = () => {
+                if (!draggingPill) return;
+                draggingPill = false;
+                pill.classList.remove('quran-dragging');
+                window.removeEventListener('pointermove', onPillMove);
+                window.removeEventListener('pointerup', finishPillDrag);
+                window.removeEventListener('pointercancel', finishPillDrag);
+
+                if (!didMovePill) {
+                    index.classList.toggle('quran-index-open');
+                    if (index.classList.contains('quran-index-open')) {
+                        wheelScroll.scrollTo({ top: index._activeIdx * itemHeight, behavior: 'instant' });
+                        updateWheelVisuals(index._activeIdx);
+                    }
+                } else {
+                    const rect = index.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const snapToLeft = centerX < window.innerWidth / 2;
+                    index.style.transition = 'left 0.28s cubic-bezier(0.16, 1, 0.3, 1), right 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
+                    if (snapToLeft) {
+                        index.classList.add('quran-dock-left');
+                        index.classList.remove('quran-dock-right');
+                        index.style.left = '14px';
+                        index.style.right = 'auto';
+                        localStorage.setItem('quran-index-dock-side', 'left');
+                    } else {
+                        index.classList.add('quran-dock-right');
+                        index.classList.remove('quran-dock-left');
+                        index.style.left = 'auto';
+                        index.style.right = '14px';
+                        localStorage.setItem('quran-index-dock-side', 'right');
+                    }
+                    const clampedY = Math.max(140, Math.min(window.innerHeight - 140, rect.top));
+                    index.style.top = `${clampedY}px`;
+                    localStorage.setItem('quran-index-dock-top', `${clampedY}`);
+                    setTimeout(() => { index.style.transition = ''; }, 300);
+                }
+            };
+
+            window.addEventListener('pointermove', onPillMove);
+            window.addEventListener('pointerup', finishPillDrag);
+            window.addEventListener('pointercancel', finishPillDrag);
+        });
+
+        const panel = document.createElement('div');
+        panel.className = 'quran-index-panel';
+
+        const header = document.createElement('div');
+        header.className = 'quran-index-header';
+
+        const title = document.createElement('span');
+        title.className = 'quran-index-title';
+        title.textContent = 'Quran Verses';
+
+        const counter = document.createElement('span');
+        counter.className = 'quran-index-counter';
+        counter.textContent = `1/${blocks.length}`;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'quran-index-close';
+        closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        closeBtn.onclick = (e) => {
+            e.stopPropagation();
+            index.classList.remove('quran-index-open');
+        };
+
+        header.appendChild(title);
+        header.appendChild(counter);
+        header.appendChild(closeBtn);
+        panel.appendChild(header);
+
+        const viewport = document.createElement('div');
+        viewport.className = 'quran-wheel-viewport';
+
+        const lens = document.createElement('div');
+        lens.className = 'quran-wheel-lens';
+        viewport.appendChild(lens);
+
+        const wheelScroll = document.createElement('div');
+        wheelScroll.className = 'quran-wheel-scroll';
+        wheelScroll.style.padding = `${padY}px 0`;
+
+        const itemElements = [];
+        blocks.forEach((b, idx) => {
+            const item = document.createElement('div');
+            item.className = 'quran-wheel-item';
+
+            const dot = document.createElement('span');
+            dot.className = 'quran-wheel-dot';
+
+            const text = document.createElement('div');
+            text.className = 'quran-wheel-text';
+
+            const label = document.createElement('span');
+            label.className = 'quran-wheel-label';
+            label.textContent = b.label;
+
+            const verses = document.createElement('span');
+            verses.className = 'quran-wheel-verses';
+            verses.textContent = b.verses;
+
+            text.appendChild(label);
+            text.appendChild(verses);
+            item.appendChild(dot);
+            item.appendChild(text);
+
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectIndex(idx, true);
+            });
+
+            wheelScroll.appendChild(item);
+            itemElements.push(item);
+        });
+
+        viewport.appendChild(wheelScroll);
+        panel.appendChild(viewport);
+
+        index.appendChild(pill);
+        index.appendChild(panel);
 
         const getContainers = () =>
             Array.from(document.querySelectorAll('.quran-tajweed-container[data-quran-ref]'));
 
-        const render = (activeIdx) => {
-            index.innerHTML = '';
-            index._activeIdx = activeIdx;
+        const navigateToBlock = (b, idx) => {
+            index._scrollLocked = true;
+            clearTimeout(index._scrollLockTimer);
 
-            const slots = [activeIdx - 2, activeIdx - 1, activeIdx, activeIdx + 1, activeIdx + 2];
-            slots.forEach((idx, slot) => {
-                const item = document.createElement('div');
-                item.className = 'quran-index-item' + (slot === 2 ? ' quran-index-active' : '');
+            const containers = getContainers();
+            const target = containers.find(c => c.dataset.quranRef === b.ref);
 
-                if (idx >= 0 && idx < blocks.length) {
-                    const b = blocks[idx];
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                target.classList.add('quran-block-flash');
+                setTimeout(() => target.classList.remove('quran-block-flash'), 800);
+                index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1200);
+            } else {
+                const scrollEl = document.querySelector('.markdown-preview-view')
+                    || document.querySelector('.view-content')
+                    || document.documentElement;
 
-                    const dot = document.createElement('span');
-                    dot.className = 'quran-index-dot';
-                    item.appendChild(dot);
+                const getScrollTop = () => scrollEl === document.documentElement
+                    ? window.scrollY
+                    : scrollEl.scrollTop;
 
-                    const text = document.createElement('div');
-                    text.className = 'quran-index-text';
+                const scrollTo = (top) => {
+                    if (scrollEl === document.documentElement) {
+                        window.scrollTo({ top, behavior: 'instant' });
+                    } else {
+                        scrollEl.scrollTop = top;
+                    }
+                };
 
-                    const label = document.createElement('span');
-                    label.className = 'quran-index-label';
-                    label.textContent = b.label;
+                const targetIdx = idx;
+                const targetRef = b.ref;
+                let attempts = 0;
+                const maxAttempts = 40;
 
-                    const verses = document.createElement('span');
-                    verses.className = 'quran-index-verses';
-                    verses.textContent = b.verses;
+                const poll = () => {
+                    attempts++;
+                    if (attempts > maxAttempts) {
+                        index._scrollLocked = false;
+                        return;
+                    }
 
-                    text.appendChild(label);
-                    text.appendChild(verses);
-                    item.appendChild(text);
+                    const found = getContainers().find(c => c.dataset.quranRef === targetRef);
+                    if (found) {
+                        found.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        found.classList.add('quran-block-flash');
+                        setTimeout(() => found.classList.remove('quran-block-flash'), 800);
+                        index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1000);
+                        return;
+                    }
 
-                    item.addEventListener('click', () => {
-                        index._scrollLocked = true;
-                        clearTimeout(index._scrollLockTimer);
-                        render(idx);
+                    const current = getContainers();
+                    if (current.length === 0) {
+                        scrollTo(targetIdx === 0 ? 0 : getScrollTop() + window.innerHeight * 2);
+                        setTimeout(poll, 150);
+                        return;
+                    }
 
-                        const containers = getContainers();
-                        const target = containers.find(c => c.dataset.quranRef === b.ref);
+                    const nearest = current
+                        .map(c => ({ c, fi: blocks.findIndex(b => b.ref === c.dataset.quranRef) }))
+                        .filter(x => x.fi >= 0)
+                        .sort((a, b) => Math.abs(a.fi - targetIdx) - Math.abs(b.fi - targetIdx))[0];
 
-                        if (target) {
-                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            target.classList.add('quran-block-flash');
-                            setTimeout(() => target.classList.remove('quran-block-flash'), 800);
-                            index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1200);
-                        } else {
-                            const scrollEl = document.querySelector('.markdown-preview-view')
-                                || document.querySelector('.view-content')
-                                || document.documentElement;
+                    if (!nearest) {
+                        setTimeout(poll, 150);
+                        return;
+                    }
 
-                            const getScrollTop = () => scrollEl === document.documentElement
-                                ? window.scrollY
-                                : scrollEl.scrollTop;
+                    const direction = targetIdx > nearest.fi ? 1 : -1;
+                    const step = window.innerHeight * 0.9;
+                    const newTop = getScrollTop() + direction * step;
+                    scrollTo(newTop);
+                    setTimeout(poll, 150);
+                };
 
-                            const scrollTo = (top) => {
-                                if (scrollEl === document.documentElement) {
-                                    window.scrollTo({ top, behavior: 'instant' });
-                                } else {
-                                    scrollEl.scrollTop = top;
-                                }
-                            };
+                poll();
+            }
+        };
 
-                            const targetIdx = idx;
-                            const targetRef = b.ref;
-                            let attempts = 0;
-                            const maxAttempts = 40;
+        const updateWheelVisuals = (activeIdx) => {
+            const currentScroll = wheelScroll.scrollTop;
+            itemElements.forEach((el, i) => {
+                const itemCenter = padY + i * itemHeight + itemHeight / 2 - currentScroll;
+                const dist = (itemCenter - halfH) / itemHeight;
+                const absDist = Math.abs(dist);
+                const angle = Math.max(-75, Math.min(75, -dist * 22));
+                const scale = Math.max(0.72, 1 - absDist * 0.08);
+                const opacity = Math.max(0.12, 1 - absDist * 0.32);
+                const tz = -absDist * 14;
 
-                            const poll = () => {
-                                attempts++;
-                                if (attempts > maxAttempts) {
-                                    index._scrollLocked = false;
-                                    return;
-                                }
+                el.style.transform = `perspective(500px) rotateX(${angle}deg) scale(${scale}) translateZ(${tz}px)`;
+                el.style.opacity = `${opacity}`;
 
-                                const found = getContainers().find(c => c.dataset.quranRef === targetRef);
-                                if (found) {
-                                    found.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    found.classList.add('quran-block-flash');
-                                    setTimeout(() => found.classList.remove('quran-block-flash'), 800);
-                                    index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1000);
-                                    return;
-                                }
-
-                                const current = getContainers();
-                                if (current.length === 0) {
-                                    scrollTo(targetIdx === 0 ? 0 : getScrollTop() + window.innerHeight * 2);
-                                    setTimeout(poll, 150);
-                                    return;
-                                }
-
-                                const nearest = current
-                                    .map(c => ({ c, fi: blocks.findIndex(b => b.ref === c.dataset.quranRef) }))
-                                    .filter(x => x.fi >= 0)
-                                    .sort((a, b) => Math.abs(a.fi - targetIdx) - Math.abs(b.fi - targetIdx))[0];
-
-                                if (!nearest) {
-                                    setTimeout(poll, 150);
-                                    return;
-                                }
-
-                                const rect = nearest.c.getBoundingClientRect();
-                                const direction = targetIdx > nearest.fi ? 1 : -1;
-                                const step = window.innerHeight * 0.9;
-                                const newTop = getScrollTop() + direction * step;
-                                scrollTo(newTop);
-                                setTimeout(poll, 150);
-                            };
-
-                            poll();
-                        }
-                    });
+                if (i === activeIdx) {
+                    el.classList.add('quran-wheel-active');
                 } else {
-                    item.classList.add('quran-index-ghost');
+                    el.classList.remove('quran-wheel-active');
                 }
-
-                index.appendChild(item);
             });
 
-            const counter = document.createElement('div');
-            counter.className = 'quran-index-counter';
             counter.textContent = `${activeIdx + 1}/${blocks.length}`;
-            index.appendChild(counter);
+
+            if (pillDotElements.length > 0) {
+                const activeDotIdx = pillDotElements.length === 1
+                    ? 0
+                    : Math.round((activeIdx / Math.max(1, blocks.length - 1)) * (pillDotElements.length - 1));
+                pillDotElements.forEach((dot, dIdx) => {
+                    if (dIdx === activeDotIdx) dot.classList.add('quran-dot-active');
+                    else dot.classList.remove('quran-dot-active');
+                });
+            }
         };
+
+        const selectIndex = (idx, scrollToNote = false) => {
+            const clamped = Math.max(0, Math.min(blocks.length - 1, idx));
+            index._activeIdx = clamped;
+            wheelScroll.scrollTo({ top: clamped * itemHeight, behavior: 'smooth' });
+            updateWheelVisuals(clamped);
+            if (scrollToNote) {
+                navigateToBlock(blocks[clamped], clamped);
+            }
+        };
+
+        let isWheelUserScrolling = false;
+        let wheelScrollTimer = null;
+        let rAF = null;
+
+        wheelScroll.addEventListener('scroll', () => {
+            if (rAF) cancelAnimationFrame(rAF);
+            rAF = requestAnimationFrame(() => {
+                const currentIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
+                updateWheelVisuals(currentIdx);
+            });
+
+            isWheelUserScrolling = true;
+            clearTimeout(wheelScrollTimer);
+            wheelScrollTimer = setTimeout(() => {
+                isWheelUserScrolling = false;
+                const snappedIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
+                if (snappedIdx !== index._activeIdx) {
+                    index._activeIdx = snappedIdx;
+                    updateWheelVisuals(snappedIdx);
+                    navigateToBlock(blocks[snappedIdx], snappedIdx);
+                }
+            }, 180);
+        }, { passive: true });
+
+        let isWheelDragging = false;
+        let wheelDragStartY = 0;
+        let wheelDragStartScroll = 0;
+
+        wheelScroll.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.quran-wheel-item')) return;
+            isWheelDragging = true;
+            wheelDragStartY = e.clientY;
+            wheelDragStartScroll = wheelScroll.scrollTop;
+            wheelScroll.setPointerCapture(e.pointerId);
+            wheelScroll.classList.add('quran-wheel-grabbing');
+        });
+
+        wheelScroll.addEventListener('pointermove', (e) => {
+            if (!isWheelDragging) return;
+            const deltaY = e.clientY - wheelDragStartY;
+            wheelScroll.scrollTop = wheelDragStartScroll - deltaY;
+        });
+
+        const finishWheelDrag = () => {
+            if (!isWheelDragging) return;
+            isWheelDragging = false;
+            wheelScroll.classList.remove('quran-wheel-grabbing');
+            const targetIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
+            selectIndex(targetIdx, true);
+        };
+        wheelScroll.addEventListener('pointerup', finishWheelDrag);
+        wheelScroll.addEventListener('pointercancel', finishWheelDrag);
+
+        const onDocClick = (e) => {
+            if (!index.contains(e.target)) {
+                index.classList.remove('quran-index-open');
+            }
+        };
+        const onDocKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                index.classList.remove('quran-index-open');
+            }
+        };
+        document.addEventListener('click', onDocClick);
+        document.addEventListener('keydown', onDocKeyDown);
+        index._docListeners.push({ type: 'click', fn: onDocClick });
+        index._docListeners.push({ type: 'keydown', fn: onDocKeyDown });
 
         const findActiveIdx = () => {
             const containers = getContainers();
@@ -1524,15 +1821,19 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             return bestIdx;
         };
 
-        const onScroll = () => {
-            if (index._scrollLocked) return;
+        const onNoteScroll = () => {
+            if (index._scrollLocked || isWheelUserScrolling || isWheelDragging) return;
             const idx = findActiveIdx();
-            if (idx !== index._activeIdx) render(idx);
+            if (idx !== index._activeIdx) {
+                index._activeIdx = idx;
+                wheelScroll.scrollTo({ top: idx * itemHeight, behavior: 'smooth' });
+                updateWheelVisuals(idx);
+            }
         };
 
         const addScrollListener = (target) => {
-            target.addEventListener('scroll', onScroll, { passive: true });
-            index._scrollListeners.push({ el: target, fn: onScroll });
+            target.addEventListener('scroll', onNoteScroll, { passive: true });
+            index._scrollListeners.push({ el: target, fn: onNoteScroll });
         };
 
         addScrollListener(window);
@@ -1541,7 +1842,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (!seen.has(el)) { seen.add(el); addScrollListener(el); }
         });
 
-        render(findActiveIdx());
+        const initialIdx = findActiveIdx();
+        index._activeIdx = initialIdx;
+        wheelScroll.scrollTop = initialIdx * itemHeight;
+        updateWheelVisuals(initialIdx);
     }
 
     refreshQuranIndex(el) {
