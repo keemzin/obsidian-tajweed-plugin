@@ -433,9 +433,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             });
         });
 
-        // Auto-advance to next verse when current ends (for range playback)
         audio.addEventListener('ended', () => {
             if (!rangeControls || !rangeControls.isPlaying || !verseDiv) return;
+            if (rangeControls.isPaused) return;
             this.highlightVerse(verseDiv, false);
 
             const nextIndex = rangeControls.currentVerseIndex + 1;
@@ -445,12 +445,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 const nextVerseDiv = rangeControls.verseDivs[nextIndex];
                 this.highlightVerse(nextVerseDiv, true);
                 const nextAudio = nextVerseDiv.querySelector('.quran-audio-player');
-                if (!nextAudio) {
-                    this.stopRange(rangeControls);
-                    return;
-                }
+                if (!nextAudio) { this.stopRange(rangeControls); return; }
                 nextAudio.play().catch(() => this.stopRange(rangeControls));
                 this.preloadNextAudio(rangeControls, nextIndex);
+                this.updateMiniPlayer(rangeControls);
             } else {
                 rangeControls.repeatCount++;
                 if (rangeControls.repeatCount < rangeControls.maxRepeats) {
@@ -459,15 +457,14 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     const firstVerseDiv = rangeControls.verseDivs[0];
                     this.highlightVerse(firstVerseDiv, true);
                     const firstAudio = firstVerseDiv.querySelector('.quran-audio-player');
-                    if (!firstAudio) {
-                        this.stopRange(rangeControls);
-                        return;
-                    }
+                    if (!firstAudio) { this.stopRange(rangeControls); return; }
                     firstAudio.play().catch(() => this.stopRange(rangeControls));
                     this.preloadNextAudio(rangeControls, 0);
+                    this.updateMiniPlayer(rangeControls);
                 } else {
                     rangeControls.isPlaying = false;
                     this.updatePlayButton(rangeControls);
+                    this.hideMiniPlayer();
                 }
             }
         });
@@ -612,12 +609,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         this.currentPlaying = controls;
         
         controls.isPlaying = true;
+        controls.isPaused = false;
         controls.currentVerseIndex = 0;
         controls.repeatCount = 0;
         this.updatePlayButton(controls);
         this.updateRepeatDisplay(controls);
 
-        // Find all verse divs
         const container = controls.playButton.closest('.quran-tajweed-container');
         const verseDivs = container.querySelectorAll('.quran-verse');
         controls.verseDivs = Array.from(verseDivs);
@@ -643,6 +640,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.updatePlayButton(controls);
         });
         this.preloadNextAudio(controls, 0);
+        this.updateMiniPlayer(controls);
     }
 
     preloadNextAudio(controls, currentIndex) {
@@ -657,21 +655,186 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
     stopRange(controls) {
         controls.isPlaying = false;
+        controls.isPaused = false;
         if (this.currentPlaying === controls) {
             this.currentPlaying = null;
         }
         this.updatePlayButton(controls);
 
-        // Stop all audio players in the container
         const container = controls.playButton.closest('.quran-tajweed-container');
         container.querySelectorAll('.quran-audio-player').forEach(a => {
             a.pause();
             a.currentTime = 0;
         });
-
-        // Remove all highlights
         container.querySelectorAll('.quran-verse').forEach(div => this.highlightVerse(div, false));
+        this.hideMiniPlayer();
+    }
 
+    pauseRange(controls) {
+        if (!controls.isPlaying || controls.isPaused) return;
+        controls.isPaused = true;
+        const verseDiv = controls.verseDivs[controls.currentVerseIndex];
+        if (verseDiv) {
+            const audio = verseDiv.querySelector('.quran-audio-player');
+            if (audio) audio.pause();
+        }
+        this.updateMiniPlayer(controls);
+    }
+
+    resumeRange(controls) {
+        if (!controls.isPlaying || !controls.isPaused) return;
+        controls.isPaused = false;
+        const verseDiv = controls.verseDivs[controls.currentVerseIndex];
+        if (verseDiv) {
+            const audio = verseDiv.querySelector('.quran-audio-player');
+            if (audio) audio.play().catch(() => {});
+        }
+        this.updateMiniPlayer(controls);
+    }
+
+    prevVerse(controls) {
+        if (!controls.isPlaying) return;
+        const currentVerseDiv = controls.verseDivs[controls.currentVerseIndex];
+        if (currentVerseDiv) {
+            const audio = currentVerseDiv.querySelector('.quran-audio-player');
+            if (audio) { audio.pause(); audio.currentTime = 0; }
+            this.highlightVerse(currentVerseDiv, false);
+        }
+        const prevIndex = Math.max(0, controls.currentVerseIndex - 1);
+        controls.currentVerseIndex = prevIndex;
+        controls.isPaused = false;
+        const prevVerseDiv = controls.verseDivs[prevIndex];
+        if (prevVerseDiv) {
+            this.highlightVerse(prevVerseDiv, true);
+            const audio = prevVerseDiv.querySelector('.quran-audio-player');
+            if (audio) audio.play().catch(() => {});
+        }
+        this.updateMiniPlayer(controls);
+    }
+
+    nextVerse(controls) {
+        if (!controls.isPlaying) return;
+        const currentVerseDiv = controls.verseDivs[controls.currentVerseIndex];
+        if (currentVerseDiv) {
+            const audio = currentVerseDiv.querySelector('.quran-audio-player');
+            if (audio) { audio.pause(); audio.currentTime = 0; }
+            this.highlightVerse(currentVerseDiv, false);
+        }
+        const nextIndex = controls.currentVerseIndex + 1;
+        if (nextIndex >= controls.verseDivs.length) {
+            this.stopRange(controls);
+            return;
+        }
+        controls.currentVerseIndex = nextIndex;
+        controls.isPaused = false;
+        const nextVerseDiv = controls.verseDivs[nextIndex];
+        if (nextVerseDiv) {
+            this.highlightVerse(nextVerseDiv, true);
+            const audio = nextVerseDiv.querySelector('.quran-audio-player');
+            if (audio) audio.play().catch(() => {});
+            this.preloadNextAudio(controls, nextIndex);
+        }
+        this.updateMiniPlayer(controls);
+    }
+
+    updateMiniPlayer(controls) {
+        let bar = document.getElementById('quran-mini-player');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'quran-mini-player';
+            bar.className = 'quran-mini-player';
+            document.body.appendChild(bar);
+
+            let dragX = 0, dragY = 0, startX = 0, startY = 0, dragging = false;
+
+            bar.addEventListener('pointerdown', (e) => {
+                if (e.target.closest('button')) return;
+                dragging = true;
+                bar.setPointerCapture(e.pointerId);
+                const rect = bar.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+                bar.style.cursor = 'grabbing';
+                bar.style.userSelect = 'none';
+            });
+
+            bar.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                const x = e.clientX - startX;
+                const y = e.clientY - startY;
+                const maxX = window.innerWidth - bar.offsetWidth;
+                const maxY = window.innerHeight - bar.offsetHeight;
+                bar.style.left = `${Math.max(0, Math.min(x, maxX))}px`;
+                bar.style.top = `${Math.max(0, Math.min(y, maxY))}px`;
+                bar.style.right = 'auto';
+                bar.style.bottom = 'auto';
+            });
+
+            bar.addEventListener('pointerup', () => {
+                dragging = false;
+                bar.style.cursor = 'grab';
+                bar.style.userSelect = '';
+            });
+        }
+
+        const surahName = SURAHS.find(s => s.number === controls.surah)?.name || `Surah ${controls.surah}`;
+        const verseNum = controls.verseDivs[controls.currentVerseIndex]?.dataset.verseNumber || '';
+        const totalVerses = controls.verseDivs.length;
+        const curIdx = controls.currentVerseIndex;
+
+        bar.innerHTML = '';
+
+        const info = document.createElement('div');
+        info.className = 'quran-mini-info';
+        info.innerHTML = `<span class="quran-mini-surah">${surahName}</span><span class="quran-mini-verse">${verseNum} <span class="quran-mini-pos">(${curIdx + 1}/${totalVerses})</span></span>`;
+
+        const btns = document.createElement('div');
+        btns.className = 'quran-mini-btns';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'quran-mini-btn';
+        prevBtn.title = 'Previous verse';
+        prevBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="19,5 9,12 19,19"/><rect x="5" y="5" width="3" height="14"/></svg>';
+        prevBtn.disabled = curIdx === 0;
+        prevBtn.onclick = () => this.prevVerse(controls);
+
+        const pauseBtn = document.createElement('button');
+        pauseBtn.className = 'quran-mini-btn quran-mini-playpause';
+        pauseBtn.title = controls.isPaused ? 'Resume' : 'Pause';
+        pauseBtn.innerHTML = controls.isPaused
+            ? '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        pauseBtn.onclick = () => {
+            if (controls.isPaused) this.resumeRange(controls);
+            else this.pauseRange(controls);
+        };
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'quran-mini-btn';
+        nextBtn.title = 'Next verse';
+        nextBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,5 15,12 5,19"/><rect x="16" y="5" width="3" height="14"/></svg>';
+        nextBtn.disabled = curIdx >= totalVerses - 1;
+        nextBtn.onclick = () => this.nextVerse(controls);
+
+        const stopBtn = document.createElement('button');
+        stopBtn.className = 'quran-mini-btn quran-mini-stop';
+        stopBtn.title = 'Stop';
+        stopBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>';
+        stopBtn.onclick = () => this.stopRange(controls);
+
+        btns.appendChild(prevBtn);
+        btns.appendChild(pauseBtn);
+        btns.appendChild(nextBtn);
+        btns.appendChild(stopBtn);
+
+        bar.appendChild(info);
+        bar.appendChild(btns);
+        bar.style.display = 'flex';
+    }
+
+    hideMiniPlayer() {
+        const bar = document.getElementById('quran-mini-player');
+        if (bar) bar.style.display = 'none';
     }
 
     highlightVerse(verseDiv, isHighlighted) {
