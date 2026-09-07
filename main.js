@@ -1085,9 +1085,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 if (!s) return;
                 const st = container._quranState || {};
                 const newRef = `${newSurah}:1-${Math.min(s.ayahs, 10)}`;
-                el.innerHTML = '';
-                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled);
                 await this.updateSourceRange(container, newRef);
+                el.innerHTML = '';
+                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
             };
 
             fromSelect.onchange = async () => {
@@ -1097,9 +1097,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 updateVerseOptions(f);
                 const st = container._quranState || {};
                 const newRef = `${surah}:${f}-${t}`;
-                el.innerHTML = '';
-                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled);
                 await this.updateSourceRange(container, newRef);
+                el.innerHTML = '';
+                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
             };
 
             toSelect.onchange = async () => {
@@ -1108,9 +1108,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 toSelect.value = t;
                 const st = container._quranState || {};
                 const newRef = `${surah}:${f}-${t}`;
-                el.innerHTML = '';
-                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled);
                 await this.updateSourceRange(container, newRef);
+                el.innerHTML = '';
+                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
             };
 
             const arabicCacheKey = `quran-surah-${surah}`;
@@ -1249,6 +1249,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 transliterationVerses,
                 rangeControls: null,
                 ctx,
+                el,
+                customLabel,
             };
             container._quranState = state;
 
@@ -1853,6 +1855,56 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         setTimeout(() => this.buildIndexFromFile(), 900);
     }
 
+    getBlockLineRange(container, lines) {
+        const st = container._quranState;
+        if (!st || !st.ctx) return null;
+
+        try {
+            const el = st.el || container.parentElement || container;
+            const info = st.ctx.getSectionInfo(el) || st.ctx.getSectionInfo(container);
+            if (info && typeof info.lineStart === 'number') {
+                for (let offset = 0; offset <= 3; offset++) {
+                    const checkLines = [info.lineStart - offset, info.lineStart + offset];
+                    for (const ln of checkLines) {
+                        if (ln >= 0 && ln < lines.length && lines[ln].trim().startsWith('```quran')) {
+                            let end = lines.length;
+                            for (let j = ln + 1; j < lines.length; j++) {
+                                if (lines[j].trim() === '```') {
+                                    end = j;
+                                    break;
+                                }
+                            }
+                            return { start: ln, end };
+                        }
+                    }
+                }
+            }
+        } catch (e) {}
+
+        const allContainers = Array.from(document.querySelectorAll('.quran-tajweed-container'));
+        const containerIndex = allContainers.indexOf(container);
+
+        const blockRanges = [];
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim().startsWith('```quran')) {
+                let end = lines.length;
+                for (let j = i + 1; j < lines.length; j++) {
+                    if (lines[j].trim() === '```') {
+                        end = j;
+                        break;
+                    }
+                }
+                blockRanges.push({ start: i, end });
+            }
+        }
+
+        if (containerIndex >= 0 && containerIndex < blockRanges.length) {
+            return blockRanges[containerIndex];
+        }
+
+        return null;
+    }
+
     async updateSourceParam(container, key, newVal) {
         const st = container._quranState;
         if (!st || !st.ctx || !st.ctx.sourcePath) return;
@@ -1875,38 +1927,24 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }
         const lines = content.split('\n');
 
-        let searchStart = 0;
-        let searchEnd = lines.length;
-        try {
-            const info = st.ctx.getSectionInfo(container);
-            if (info) {
-                searchStart = info.lineStart;
-                searchEnd = Math.min(info.lineEnd + 1, lines.length);
-            }
-        } catch (e) {}
+        const range = this.getBlockLineRange(container, lines);
+        if (!range) return;
 
-        for (let i = searchStart; i < searchEnd; i++) {
-            if (lines[i].trim().startsWith('```quran')) {
-                for (let j = i + 1; j < searchEnd; j++) {
-                    if (lines[j].trim() === '```') break;
-                    const regex = new RegExp(`${paramName}="(on|off)"`, 'i');
-                    if (regex.test(lines[j])) {
-                        lines[j] = lines[j].replace(regex, `${paramName}="${paramValue}"`);
-                        await this.app.vault.modify(file, lines.join('\n'));
-                        return;
-                    }
-                }
-                lines.splice(i + 1, 0, `${paramName}="${paramValue}"`);
+        for (let j = range.start + 1; j < range.end; j++) {
+            const regex = new RegExp(`${paramName}="(on|off)"`, 'i');
+            if (regex.test(lines[j])) {
+                lines[j] = lines[j].replace(regex, `${paramName}="${paramValue}"`);
                 await this.app.vault.modify(file, lines.join('\n'));
                 return;
             }
         }
+        lines.splice(range.start + 1, 0, `${paramName}="${paramValue}"`);
+        await this.app.vault.modify(file, lines.join('\n'));
     }
 
     async updateSourceRange(container, newRef) {
         const st = container._quranState;
         if (!st || !st.ctx || !st.ctx.sourcePath) return;
-        const oldRef = `${st.surah}:${st.startVerse}${st.startVerse !== st.endVerse ? '-' + st.endVerse : ''}`;
         const file = this.app.vault.getAbstractFileByPath(st.ctx.sourcePath);
         if (!file) return;
         let content;
@@ -1914,25 +1952,26 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             content = await this.app.vault.read(file);
         } catch (e) { return; }
         const lines = content.split('\n');
-        let searchStart = 0;
-        let searchEnd = lines.length;
-        try {
-            const info = st.ctx.getSectionInfo(container);
-            if (info) {
-                searchStart = info.lineStart;
-                searchEnd = Math.min(info.lineEnd + 1, lines.length);
-            }
-        } catch (e) {}
-        for (let i = searchStart; i < searchEnd; i++) {
-            if (lines[i].trim().startsWith('```quran')) {
-                for (let j = i + 1; j < searchEnd; j++) {
-                    if (lines[j].trim() === '```') break;
-                    if (lines[j].trim() === oldRef) {
-                        lines[j] = lines[j].replace(oldRef, newRef);
-                        await this.app.vault.modify(file, lines.join('\n'));
-                        return;
-                    }
+
+        const range = this.getBlockLineRange(container, lines);
+        if (!range) return;
+
+        const verseRegex = /^\s*(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?\s*$/;
+        for (let j = range.start + 1; j <= range.end; j++) {
+            if (j === range.end || verseRegex.test(lines[j]) || lines[j].trim() === '```') {
+                if (j === range.end || lines[j].trim() === '```') {
+                    lines.splice(j, 0, newRef);
+                } else {
+                    lines[j] = newRef;
                 }
+                await this.app.vault.modify(file, lines.join('\n'));
+                const parsed = this.extractVerseReference(newRef);
+                if (parsed) {
+                    st.surah = parsed.surah;
+                    st.startVerse = parsed.startVerse;
+                    st.endVerse = parsed.endVerse;
+                }
+                return;
             }
         }
     }
