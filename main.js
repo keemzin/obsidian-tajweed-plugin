@@ -20,6 +20,44 @@ const TAJWEED_COLORS = {
     'ghn': '#FF7E1E'
 };
 
+const V4_TAJWEED_COLORS = {
+    'ham_wasl': '#999999',
+    'slnt': '#999999',
+    'madda_normal': '#ffc1e0',
+    'madda_permissible': '#ff8e3b',
+    'madda_obligatory': '#ff5e8e',
+    'madda_necessary': '#e30000',
+    'qlq': '#00deff',
+    'ghn': '#26b55d',
+    'ikhf': '#26b55d',
+    'ikhf_shfw': '#26b55d',
+    'idghm_shfw': '#26b55d',
+    'iqlb': '#26b55d',
+    'idgh_ghn': '#26b55d',
+    'idgh_w_ghn': '#999999',
+    'idgh_mus': '#999999',
+    'tafkhim': '#3c84d5'
+};
+
+const V4_RULE_NAMES = {
+    'ham_wasl': 'Silent letter',
+    'slnt': 'Silent letter',
+    'madda_normal': 'Normal madd (2)',
+    'madda_permissible': 'Separated madd (2/4/6)',
+    'madda_obligatory': 'Connected madd (4/5)',
+    'madda_necessary': 'Necessary madd (6)',
+    'qlq': 'Qalqala (echo)',
+    'ghn': 'Ghunna/ikhfa',
+    'ikhf': 'Ghunna/ikhfa',
+    'ikhf_shfw': 'Ghunna/ikhfa',
+    'idghm_shfw': 'Ghunna/ikhfa',
+    'iqlb': 'Ghunna/ikhfa',
+    'idgh_ghn': 'Ghunna/ikhfa',
+    'idgh_w_ghn': 'Silent letter',
+    'idgh_mus': 'Silent letter',
+    'tafkhim': 'Tafkhim (heavy)'
+};
+
 // Rule code to class name mapping
 const RULE_MAP = {
     'h': 'ham_wasl',
@@ -141,6 +179,12 @@ const TAJWEED_DETAILS = {
         arabic: 'إدغام متجانسين / متقاربين',
         desc: 'Merging two letters that share the same or close articulation point (e.g. Dal into Taa or Baa into Meem).',
         color: '#A1A1A1'
+    },
+    'tafkhim': {
+        name: 'Tafkhim (Heavy Letter)',
+        arabic: 'تفخيم',
+        desc: "Pronounced with a full, elevated mouth — applies to the 7 Isti'la letters (خ ص ض غ ط ق ظ), heavy Ra (ر) with fathah or dammah, and the Lam in the name of Allah.",
+        color: '#3C84D5'
     }
 };
 
@@ -589,21 +633,90 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         return false;
     }
 
+    hasTafkhim(word) {
+        if (!word) return false;
+        if (/[خصضغطقظ]/.test(word)) return true;
+        if (/ر(\u0651?[\u064E\u064F\u064B\u064C]|[\u064E\u064F\u064B\u064C]\u0651)/.test(word)) return true;
+        if (/[\u064E\u064F][^\u064E\u064F\u0650\u064D\u064B\u064C]*رْ/.test(word)) return true;
+        if (/اللَّه/.test(word)) return true;
+        return false;
+    }
+
+    getTajweedWords(verseText) {
+        if (!verseText) return [];
+        const clean = verseText.replace(/۞\s*/g, '').replace(/\[ٮٰ\]/g, 'ٮٰ').trim();
+        const words = [];
+        let currentHtml = '';
+        let currentRaw = '';
+        let activeRules = [];
+        let currentWordRules = [];
+
+        let i = 0;
+        while (i < clean.length) {
+            const tagMatch = clean.slice(i).match(/^\[([a-z])(?::\d+)?\[/);
+            if (tagMatch) {
+                const ruleCode = tagMatch[1];
+                const ruleClass = RULE_MAP[ruleCode] || ruleCode;
+                activeRules.push(ruleClass);
+                if (!currentWordRules.includes(ruleClass)) currentWordRules.push(ruleClass);
+                currentHtml += `<span class="tajweed-${ruleClass}">`;
+                i += tagMatch[0].length;
+            } else if (clean[i] === ']') {
+                if (activeRules.length > 0) {
+                    activeRules.pop();
+                    currentHtml += '</span>';
+                }
+                i++;
+            } else if (/\s/.test(clean[i])) {
+                if (currentHtml || currentRaw) {
+                    let wordHtml = currentHtml;
+                    for (let r = 0; r < activeRules.length; r++) wordHtml += '</span>';
+                    const rawWord = currentRaw.replace(/\[|\]/g, '');
+                    const wordRules = [...currentWordRules];
+                    if (this.hasTafkhim(rawWord) && !wordRules.includes('tafkhim')) {
+                        wordRules.push('tafkhim');
+                    }
+                    words.push({ html: wordHtml, raw: rawWord, rules: wordRules });
+                    currentHtml = '';
+                    for (const r of activeRules) currentHtml += `<span class="tajweed-${r}">`;
+                    currentRaw = '';
+                    currentWordRules = [...activeRules];
+                }
+                i++;
+                while (i < clean.length && /\s/.test(clean[i])) i++;
+            } else {
+                currentHtml += clean[i];
+                currentRaw += clean[i];
+                i++;
+            }
+        }
+        if (currentHtml || currentRaw) {
+            let wordHtml = currentHtml;
+            for (let r = 0; r < activeRules.length; r++) wordHtml += '</span>';
+            const rawWord = currentRaw.replace(/\[|\]/g, '');
+            const wordRules = [...currentWordRules];
+            if (this.hasTafkhim(rawWord) && !wordRules.includes('tafkhim')) {
+                wordRules.push('tafkhim');
+            }
+            words.push({ html: wordHtml, raw: rawWord, rules: wordRules });
+        }
+        return words;
+    }
+
     renderStandardVerse(textSpan, surah, verse) {
         const ayah = verse.numberInSurah;
-        const rawWords = (verse.text || '').trim().split(/\s+/);
-        for (let i = 0; i < rawWords.length; i++) {
-            const rawWord = rawWords[i];
+        const parsedWords = this.getTajweedWords(verse.text);
+        for (let i = 0; i < parsedWords.length; i++) {
+            const pw = parsedWords[i];
             const wordPos = i + 1;
             const wordSpan = document.createElement('span');
             wordSpan.className = 'quran-word';
-            wordSpan.innerHTML = this.parseTajweed(rawWord);
+            wordSpan.innerHTML = pw.html;
 
-            const rules = this.getTajweedRulesForWord(verse.text, wordPos);
-            this.attachWordInteractivity(wordSpan, surah, ayah, wordPos, rules, rawWord);
+            this.attachWordInteractivity(wordSpan, surah, ayah, wordPos, pw.rules, pw.raw);
 
             textSpan.appendChild(wordSpan);
-            if (i < rawWords.length - 1) {
+            if (i < parsedWords.length - 1) {
                 textSpan.appendChild(document.createTextNode(' '));
             }
         }
@@ -611,21 +724,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
     getTajweedRulesForWord(verseText, wordPos) {
         if (!verseText) return [];
-        const words = verseText.trim().split(/\s+/);
-        const targetWord = words[wordPos - 1];
-        if (!targetWord) return [];
-
-        const rules = [];
-        const re = /\[([a-z])(?::\d+)?\[([^\]]+)\]/g;
-        let m;
-        while ((m = re.exec(targetWord)) !== null) {
-            const ruleCode = m[1];
-            const ruleClass = RULE_MAP[ruleCode];
-            if (ruleClass && !rules.includes(ruleClass)) {
-                rules.push(ruleClass);
-            }
-        }
-        return rules;
+        const words = this.getTajweedWords(verseText);
+        return words[wordPos - 1]?.rules || [];
     }
 
     async getWbwData(surah, ayah) {
@@ -707,15 +807,19 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         `;
 
         if (rules && rules.length > 0) {
-            html += `<div class="quran-word-popover-tajweed-title">Tajweed Rules</div>`;
-            for (const r of rules) {
+            const isV4 = this.settings.experimentalV4Tajweed;
+            html += `<div class="quran-word-popover-tajweed-title">Tajweed Rules${isV4 ? ' (Mushaf V4)' : ''}</div>`;
+            const uniqueRules = [...new Set(rules)];
+            for (const r of uniqueRules) {
                 const det = TAJWEED_DETAILS[r];
                 if (!det) continue;
+                const dotColor = (isV4 ? V4_TAJWEED_COLORS[r] : null) || det.color;
+                const ruleName = (isV4 && V4_RULE_NAMES[r]) ? V4_RULE_NAMES[r] : det.name;
                 html += `
                     <div class="quran-word-rule-card">
                         <div class="quran-word-rule-header">
-                            <span class="quran-word-rule-dot" style="background-color: ${det.color};"></span>
-                            <span class="quran-word-rule-name">${det.name}</span>
+                            <span class="quran-word-rule-dot" style="background-color: ${dotColor};"></span>
+                            <span class="quran-word-rule-name">${ruleName}</span>
                             <span class="quran-word-rule-arabic">${det.arabic}</span>
                             ${det.duration ? `<span class="quran-word-rule-duration">${det.duration}</span>` : ''}
                         </div>

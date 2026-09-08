@@ -333,6 +333,7 @@
 .theme-light .quran-tajweed-container .tajweed-idgh_w_ghn { color: #169200; }
 .theme-light .quran-tajweed-container .tajweed-idgh_mus { color: #A1A1A1; }
 .theme-light .quran-tajweed-container .tajweed-ghn { color: #FF7E1E; }
+.theme-light .quran-tajweed-container .tajweed-tafkhim { color: #3C84D5; }
 
 .theme-dark .quran-tajweed-container .tajweed-ham_wasl,
 .theme-dark .quran-tajweed-container .tajweed-slnt { color: #555555; }
@@ -349,6 +350,7 @@
 .theme-dark .quran-tajweed-container .tajweed-idgh_w_ghn { color: #4FC250; }
 .theme-dark .quran-tajweed-container .tajweed-idgh_mus { color: #C0C0C0; }
 .theme-dark .quran-tajweed-container .tajweed-ghn { color: #FFA050; }
+.theme-dark .quran-tajweed-container .tajweed-tafkhim { color: #5B9BF5; }
 
 .quran-verse-text {
     cursor: pointer;
