@@ -1590,10 +1590,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const lines = content.split('\n');
         let inBlock = false;
         let blockLines = [];
+        let startLine = 0;
 
-        for (const line of lines) {
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
             if (!inBlock && line.trim().startsWith('```quran')) {
                 inBlock = true;
+                startLine = i;
                 blockLines = [];
             } else if (inBlock && line.trim() === '```') {
                 inBlock = false;
@@ -1605,7 +1608,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     blocks.push({
                         label: customLabel || surahName,
                         verses: `${ref.startVerse}–${ref.endVerse}`,
-                        ref: `${ref.surah}:${ref.startVerse}-${ref.endVerse}`
+                        ref: `${ref.surah}:${ref.startVerse}-${ref.endVerse}`,
+                        line: startLine
                     });
                 }
             } else if (inBlock) {
@@ -1783,6 +1787,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
         closeBtn.onclick = (e) => {
             e.stopPropagation();
+            if (typeof clearBufferTimer === 'function') clearBufferTimer();
             index.classList.remove('quran-index-open');
         };
 
@@ -1853,81 +1858,140 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const getContainers = () =>
             Array.from(document.querySelectorAll('.quran-tajweed-container[data-quran-ref]'));
 
+        let bufferNavTimer = null;
+
+        const clearBufferTimer = () => {
+            if (bufferNavTimer) {
+                clearTimeout(bufferNavTimer);
+                bufferNavTimer = null;
+            }
+            if (lens) lens.classList.remove('quran-lens-settling');
+            itemElements.forEach(el => el.classList.remove('quran-wheel-settling'));
+        };
+
+        const startBufferTimer = (targetIdx, delay = 400) => {
+            clearBufferTimer();
+            if (targetIdx < 0 || targetIdx >= blocks.length) return;
+            if (lens) lens.classList.add('quran-lens-settling');
+            if (itemElements[targetIdx]) {
+                itemElements[targetIdx].classList.add('quran-wheel-settling');
+            }
+            bufferNavTimer = setTimeout(() => {
+                clearBufferTimer();
+                if (blocks[targetIdx]) {
+                    navigateToBlock(blocks[targetIdx], targetIdx);
+                }
+            }, delay);
+        };
+
+        const snapWheel = () => {
+            const snappedIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
+            const targetScroll = snappedIdx * itemHeight;
+            if (Math.abs(wheelScroll.scrollTop - targetScroll) > 1) {
+                wheelScroll.scrollTo({ top: targetScroll, behavior: 'smooth' });
+            }
+            index._activeIdx = snappedIdx;
+            updateWheelVisuals(snappedIdx);
+            return snappedIdx;
+        };
+
         const navigateToBlock = (b, idx) => {
             index._scrollLocked = true;
             clearTimeout(index._scrollLockTimer);
+            index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1600);
+
+            const scrollEl = document.querySelector('.markdown-preview-view')
+                || document.querySelector('.cm-scroller')
+                || document.querySelector('.view-content')
+                || document.documentElement;
+
+            const flashElement = (el) => {
+                el.classList.remove('quran-block-flash');
+                void el.offsetWidth;
+                el.classList.add('quran-block-flash');
+                setTimeout(() => el.classList.remove('quran-block-flash'), 1200);
+            };
+
+            const scrollToElement = (el, smooth = true) => {
+                if (scrollEl && scrollEl !== document.documentElement) {
+                    const elRect = el.getBoundingClientRect();
+                    const scrollerRect = scrollEl.getBoundingClientRect();
+                    const offsetTop = scrollEl.scrollTop + (elRect.top - scrollerRect.top) - 30;
+                    if (smooth) {
+                        scrollEl.scrollTo({ top: Math.max(0, offsetTop), behavior: 'smooth' });
+                    } else {
+                        scrollEl.scrollTop = Math.max(0, offsetTop);
+                    }
+                } else {
+                    el.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant', block: 'start' });
+                }
+                flashElement(el);
+            };
 
             const containers = getContainers();
-            const target = containers.find(c => c.dataset.quranRef === b.ref);
+            const matching = containers.filter(c => c.dataset.quranRef === b.ref);
+            const target = matching.length === 1 ? matching[0] : (matching[idx] || matching[0]);
 
             if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                target.classList.add('quran-block-flash');
-                setTimeout(() => target.classList.remove('quran-block-flash'), 800);
-                index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1200);
-            } else {
-                const scrollEl = document.querySelector('.markdown-preview-view')
-                    || document.querySelector('.view-content')
-                    || document.documentElement;
+                const elRect = target.getBoundingClientRect();
+                const distFromView = Math.abs(elRect.top);
+                const isNearby = distFromView <= window.innerHeight * 1.5;
+                scrollToElement(target, isNearby);
+                if (!isNearby) {
+                    clearTimeout(index._scrollLockTimer);
+                    index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 400);
+                }
+                return;
+            }
 
-                const getScrollTop = () => scrollEl === document.documentElement
-                    ? window.scrollY
-                    : scrollEl.scrollTop;
+            const { MarkdownView } = require('obsidian');
+            const view = this.app?.workspace?.getActiveViewOfType(MarkdownView);
 
-                const scrollTo = (top) => {
-                    if (scrollEl === document.documentElement) {
-                        window.scrollTo({ top, behavior: 'instant' });
-                    } else {
-                        scrollEl.scrollTop = top;
-                    }
-                };
+            if (view && typeof b.line === 'number') {
+                if (typeof view.setEphemeralState === 'function') {
+                    view.setEphemeralState({ line: b.line });
+                }
+                if (view.previewMode && typeof view.previewMode.applyScroll === 'function') {
+                    try { view.previewMode.applyScroll(b.line); } catch (e) {}
+                }
 
-                const targetIdx = idx;
-                const targetRef = b.ref;
-                let attempts = 0;
-                const maxAttempts = 40;
-
-                const poll = () => {
-                    attempts++;
-                    if (attempts > maxAttempts) {
+                const checkInterval = (attemptsLeft) => {
+                    if (attemptsLeft <= 0) {
                         index._scrollLocked = false;
                         return;
                     }
-
-                    const found = getContainers().find(c => c.dataset.quranRef === targetRef);
+                    const foundContainers = getContainers();
+                    const foundMatching = foundContainers.filter(c => c.dataset.quranRef === b.ref);
+                    const found = foundMatching.length === 1 ? foundMatching[0] : (foundMatching[idx] || foundMatching[0]);
                     if (found) {
-                        found.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        found.classList.add('quran-block-flash');
-                        setTimeout(() => found.classList.remove('quran-block-flash'), 800);
-                        index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1000);
+                        scrollToElement(found, false);
+                        clearTimeout(index._scrollLockTimer);
+                        index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 400);
                         return;
                     }
-
-                    const current = getContainers();
-                    if (current.length === 0) {
-                        scrollTo(targetIdx === 0 ? 0 : getScrollTop() + window.innerHeight * 2);
-                        setTimeout(poll, 150);
-                        return;
-                    }
-
-                    const nearest = current
-                        .map(c => ({ c, fi: blocks.findIndex(b => b.ref === c.dataset.quranRef) }))
-                        .filter(x => x.fi >= 0)
-                        .sort((a, b) => Math.abs(a.fi - targetIdx) - Math.abs(b.fi - targetIdx))[0];
-
-                    if (!nearest) {
-                        setTimeout(poll, 150);
-                        return;
-                    }
-
-                    const direction = targetIdx > nearest.fi ? 1 : -1;
-                    const step = window.innerHeight * 0.9;
-                    const newTop = getScrollTop() + direction * step;
-                    scrollTo(newTop);
-                    setTimeout(poll, 150);
+                    setTimeout(() => checkInterval(attemptsLeft - 1), 60);
                 };
 
-                poll();
+                setTimeout(() => checkInterval(8), 50);
+            } else if (scrollEl) {
+                const ratio = blocks.length > 1 ? idx / (blocks.length - 1) : 0;
+                const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+                const targetTop = Math.max(0, ratio * maxScroll);
+                const isNearby = Math.abs(targetTop - scrollEl.scrollTop) <= window.innerHeight * 1.5;
+                if (isNearby) {
+                    scrollEl.scrollTo({ top: targetTop, behavior: 'smooth' });
+                } else {
+                    scrollEl.scrollTop = targetTop;
+                }
+
+                setTimeout(() => {
+                    const foundContainers = getContainers();
+                    const found = foundContainers.find(c => c.dataset.quranRef === b.ref);
+                    if (found) {
+                        scrollToElement(found, false);
+                    }
+                    index._scrollLocked = false;
+                }, isNearby ? 400 : 50);
             }
         };
 
@@ -1966,6 +2030,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         };
 
         const selectIndex = (idx, scrollToNote = false) => {
+            clearBufferTimer();
             const clamped = Math.max(0, Math.min(blocks.length - 1, idx));
             index._activeIdx = clamped;
             wheelScroll.scrollTo({ top: clamped * itemHeight, behavior: 'smooth' });
@@ -1973,20 +2038,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (scrollToNote) {
                 navigateToBlock(blocks[clamped], clamped);
             }
-        };
-
-        const scheduleSnapAndNavigate = () => {
-            if (isPointerDown) return;
-            clearTimeout(wheelGestureTimer);
-            isWheelUserScrolling = false;
-            const snappedIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
-            const targetScroll = snappedIdx * itemHeight;
-            if (Math.abs(wheelScroll.scrollTop - targetScroll) > 1) {
-                wheelScroll.scrollTo({ top: targetScroll, behavior: 'smooth' });
-            }
-            index._activeIdx = snappedIdx;
-            updateWheelVisuals(snappedIdx);
-            navigateToBlock(blocks[snappedIdx], snappedIdx);
         };
 
         const waitForScrollToStop = (callback) => {
@@ -1999,10 +2050,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             };
             checkListener = () => {
                 clearTimeout(stopTimer);
-                stopTimer = setTimeout(done, 120);
+                stopTimer = setTimeout(done, 100);
             };
             wheelScroll.addEventListener('scroll', checkListener, { passive: true });
-            stopTimer = setTimeout(done, 120);
+            stopTimer = setTimeout(done, 100);
         };
 
         wheelScroll.addEventListener('scroll', () => {
@@ -2015,15 +2066,19 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         let wheelGestureTimer = null;
         wheelScroll.addEventListener('wheel', () => {
+            clearBufferTimer();
             isWheelUserScrolling = true;
             clearTimeout(wheelGestureTimer);
             wheelGestureTimer = setTimeout(() => {
                 isWheelUserScrolling = false;
-                scheduleSnapAndNavigate();
-            }, 400);
+                if (isPointerDown) return;
+                const snappedIdx = snapWheel();
+                startBufferTimer(snappedIdx, 400);
+            }, 200);
         }, { passive: true });
 
         wheelScroll.addEventListener('pointerdown', (e) => {
+            clearBufferTimer();
             isPointerDown = true;
             pointerDidMove = false;
             pointerStartY = e.clientY;
@@ -2049,9 +2104,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             wheelScroll.classList.remove('quran-wheel-grabbing');
             if (pointerDidMove) {
                 waitForScrollToStop(() => {
-                    scheduleSnapAndNavigate();
+                    if (isPointerDown) return;
+                    const snappedIdx = snapWheel();
+                    startBufferTimer(snappedIdx, 400);
                 });
-                setTimeout(() => { pointerDidMove = false; }, 100);
+                setTimeout(() => { pointerDidMove = false; }, 120);
             }
         };
 
@@ -2064,11 +2121,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         const onDocClick = (e) => {
             if (!index.contains(e.target)) {
+                clearBufferTimer();
                 index.classList.remove('quran-index-open');
             }
         };
         const onDocKeyDown = (e) => {
             if (e.key === 'Escape') {
+                clearBufferTimer();
                 index.classList.remove('quran-index-open');
             }
         };
@@ -2098,7 +2157,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         };
 
         const onNoteScroll = () => {
-            if (index._scrollLocked || isWheelUserScrolling || isPointerDown) return;
+            if (index._scrollLocked || isWheelUserScrolling || isPointerDown || bufferNavTimer) return;
             const idx = findActiveIdx();
             if (idx !== index._activeIdx) {
                 index._activeIdx = idx;

@@ -637,6 +637,22 @@
     color: var(--interactive-accent);
 }
 
+@keyframes quran-lens-glow {
+    0%   { opacity: 0.35; box-shadow: 0 0 0 rgba(var(--interactive-accent-rgb, 100, 150, 255), 0); }
+    50%  { opacity: 0.8;  box-shadow: 0 0 12px var(--interactive-accent); }
+    100% { opacity: 0.35; box-shadow: 0 0 0 rgba(var(--interactive-accent-rgb, 100, 150, 255), 0); }
+}
+
+.quran-wheel-lens.quran-lens-settling {
+    animation: quran-lens-glow 1.2s ease-in-out infinite;
+}
+
+.quran-wheel-item.quran-wheel-settling .quran-wheel-dot {
+    background: var(--interactive-accent);
+    transform: scale(1.45);
+    box-shadow: 0 0 8px var(--interactive-accent);
+}
+
 @keyframes quran-block-flash {
     0%   { box-shadow: inset 0 0 0 2px var(--interactive-accent); }
     60%  { box-shadow: inset 0 0 0 2px var(--interactive-accent); }
