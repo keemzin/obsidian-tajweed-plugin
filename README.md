@@ -1,109 +1,124 @@
 # Quran Tajweed Plugin for Obsidian
 
-Display Quranic verses with beautiful Tajweed color-coding, audio playback, translation, transliteration, and tafsir — all inside Obsidian.
+Display Quranic verses with beautiful Tajweed color-coding, audio playback, translation, transliteration, tafsir, and word-by-word interactive study — all inside Obsidian.
 
 ## Features
 
-- **Tajweed Colors** — Automatic color-coding of Tajweed rules (Madd, Qalqalah, Ghunnah, Ikhfa, Idgham, Iqlab, Hamzat Wasl, Lam Shamsiyyah)
-- **Uthmanic Hafs Font** — Traditional Mushaf calligraphy style
-- **Audio Playback** — Per-verse audio player with range play/stop/repeat (repeat options: 5, 10, 15, 20, 25, 30)
-- **English Translation** — Multiple translation versions (Saheeh International, Dr. Mustafa Khattab, etc.)
-- **Transliteration** — Latin script phonetic rendering
-- **Tafsir** — Click any verse to view Tafsir Ibn Kathir or Ma'arif al-Qur'an in a centered popover
-- **Interactive Navigation** — Surah and verse dropdowns at the top of each block; changes persist to source file
-- **Gear Popover** — Inline toggle for Translation, Transliteration, Audio without leaving Reading view
-- **Multi-verse Ranges** — Display any verse range (e.g., `2:255` or `36:1-12`)
-- **Cache** — Whole-surah caching in localStorage (sub-range switches within same surah are instant)
-- **Audio Preloading** — Next verse preloaded while current plays
-- **Custom Reciters** — 13+ famous reciters (Alafasy, Abdul Basit, Sudais, etc.)
-- **Customizable** — Font size, translation font size, transliteration font size, default reciter, default toggle states
-- **Mobile Support** — Works on both desktop and mobile
+- **Tajweed Colors** — Automatic color-coding of Tajweed rules (Madd, Qalqalah, Ghunnah, Ikhfa, Idgham, Iqlab, Hamzat Wasl, Lam Shamsiyyah, and Tafkhim)
+- **Word-by-Word (WBW) Interactivity** — Click or hover any word to view its Arabic text, transliteration, English meaning, pronunciation audio, and detailed Tajweed rule breakdown with color badges
+- **Authentic QCF V4 Tajweed Mode** — Optional authentic King Fahd Quran Complex calligraphy with embedded COLRv1 font color palettes matching Quran.com
+- **Uthmanic Hafs Font** — Traditional Mushaf calligraphy style for standard rendering
+- **Audio Playback** — Per-verse audio player with range play/stop/repeat (configurable repeat counts: 1x to 30x)
+- **Multi-Translation Support** — Multiple translation editions (Saheeh International, Dr. Mustafa Khattab's *The Clear Quran*, Malay, Indonesian, etc.)
+- **Transliteration** — Phonetic Latin script rendering with configurable font size
+- **Tafsir Study** — Ibn Kathir, Ma'arif al-Qur'an, or Tazkirul Quran; display via centered popover, inline under each verse, or both. Includes smart thematic tafsir filtering
+- **Interactive Navigation** — Surah and verse range dropdowns at the top of each block with automatic source persistence
+- **Quick Controls Bar** — Inline gear menu to toggle translation, transliteration, audio, and tafsir on the fly
+- **Full Offline Disk Caching** — Verses, translations, word-by-word data, and page maps cached on disk for fast, offline-friendly access
+- **Custom Reciters** — 13+ renowned reciters (Alafasy, Abdul Basit, Sudais, Minshawi, Husary, etc.)
+- **Responsive & Mobile-Ready** — Seamless support on both desktop (Windows, macOS, Linux) and mobile (iOS, Android)
 
 ## Installation
 
-Copy `main.js`, `styles.css`, and `manifest.json` into `.obsidian/plugins/quran-tajweed/`, then enable in Settings → Community Plugins.
+Copy `main.js`, `styles.css`, and `manifest.json` into `.obsidian/plugins/quran-tajweed/` in your vault, then enable the plugin in **Settings → Community Plugins**.
 
 ## Usage
 
-### Basic verse block
+### Basic Verse Block
 
-````
+````markdown
 ```quran
 1:1
 ```
 ````
 
-*[Placeholder: screenshot of rendered verse]*
+### With Audio, Translation, and Transliteration
 
-### With audio, translation, and transliteration
-
-````
+````markdown
 ```quran
 audio="on"
 translation="on"
 transliteration="on"
-1:1
+1:1-5
 ```
 ````
 
-*[Placeholder: screenshot with controls and nav bar]*
+### Multi-Verse Range with Custom Reciter
 
-### Multi-verse range with custom reciter
-
-````
+````markdown
 ```quran
 reciter="ar.abdulbasit" audio="on" translation="on"
 55:1-6
 ```
 ````
 
-*[Placeholder: screenshot of range with audio]*
-
 ### Interactive Controls
 
-- **Nav bar** (top): Change surah or verse range via dropdowns — source file updates automatically
-- **Gear icon** (controls bar): Toggle Translation, Transliteration, Audio on/off — persists to source
-- **Play/Stop/Repeat**: Play the full verse range with configurable repeat count; cross-block safety (starting one stops another)
-- **Click verse text**: Opens Tafsir popover for that verse
+- **Navigation Header**: Quickly switch surah or verse ranges using the dropdowns — updates your note source file automatically.
+- **Gear Icon**: Toggle Translation, Transliteration, and Audio on or off without switching to Edit view.
+- **Range Player**: Play the selected verse sequence with repeat loops; automatically stops other playing blocks.
+- **Word-by-Word Popover**: Click or hover any word to open the study card with word pronunciation, translation, and Tajweed rule explanation.
+- **Tafsir Button / Inline Tafsir**: Read thematic commentary for each verse directly in your note or in a centered modal.
 
 ### Command Palette
 
-Run **"Insert Quran verse block"** to quickly insert a template with all toggles enabled.
+Press `Ctrl+P` (or `Cmd+P`) and search for:
+- **"Insert Quran verse block"** — Inserts a pre-configured ` ```quran ` code block.
+- **"Clear Quran Cache"** — Clears stored network caches to refresh verse data.
 
 ## Settings
 
-| Setting | Description |
-|---------|-------------|
-| Default Reciter | Choose from 13+ reciters |
-| Font Size | Arabic text size (slider) |
-| Translation Font Size | Translation text size (slider) |
-| Transliteration Font Size | Transliteration text size (slider) |
-| Audio Enabled | Show audio players by default |
-| Translation Enabled | Show translation by default |
-| Transliteration Enabled | Show transliteration by default |
-| Translation Version | Saheeh International, Dr. Mustafa Khattab, etc. |
-| Tafsir Version | Ibn Kathir or Ma'arif al-Qur'an |
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Default Reciter** | Select from 13+ reciters (Alafasy, Abdul Basit, etc.) | Mishary Rashid Alafasy |
+| **Font Size** | Slider to adjust Arabic script size | 1.8em |
+| **Translation Font Size** | Slider to adjust translation text size | 0.95em |
+| **Transliteration Font Size** | Slider to adjust transliteration text size | 0.85em |
+| **Audio Enabled by Default** | Show audio playback controls on new blocks | `true` |
+| **Translation Enabled by Default** | Show translation text by default | `true` |
+| **Transliteration Enabled by Default** | Show transliteration text by default | `true` |
+| **Translation Version** | Select translation edition (Saheeh Int, Clear Quran, etc.) | Saheeh International |
+| **Tafsir Version** | Select tafsir edition (Ibn Kathir, Ma'arif al-Qur'an, etc.) | Ibn Kathir |
+| **Tafsir Placement** | Choose where Tafsir appears (`popover`, `inline`, or `both`) | `popover` |
+| **Thematic Tafsir Only** | Only show Tafsir button/text on verses where thematic commentary exists | `true` |
+| **Word-by-Word (WBW)** | Enable interactive word popover cards | `true` |
+| **WBW Trigger Mode** | Trigger popover on `click` or `hover` | `click` |
+| **WBW Audio** | Enable pronunciation audio button in word popover | `true` |
+| **Experimental QCF V4 Tajweed** | Authentic Madani Mushaf typography with COLRv1 Tajweed palette | `false` |
 
-## Tajweed Color Guide
+## Tajweed Color Guides
 
-- **Gray** — Silent letters (Hamzat Wasl, Lam Shamsiyyah)
-- **Light Blue / Blue / Dark Blue / Navy** — Madd (prolongation) rules
-- **Red** — Qalqalah
-- **Orange** — Ghunnah
-- **Purple** — Ikhfa
-- **Pink** — Ikhfa Shafawi
-- **Green / Teal** — Idgham (with/without Ghunnah)
-- **Cyan** — Iqlab
+### Standard Mode (Uthmanic Hafs)
 
-## Requirements
+| Color | Rule Category | Examples |
+|-------|---------------|----------|
+| **Gray** | Silent Letters | Hamzatul Wasl, Lam Shamsiyyah |
+| **Blue / Navy** | Madd (Prolongation) | Madd Asli (2), Madd Ja'iz (4/5), Madd Lazim (6) |
+| **Red** | Qalqalah | Echoing bounce on قطب جد with sukoon |
+| **Orange** | Ghunnah | 2-count nasalization on نّ and مّ |
+| **Purple** | Ikhfa | Concealing Noon Sakinah or Tanween |
+| **Pink** | Ikhfa Shafawi | Labial concealment of Meem Sakinah before Baa |
+| **Green / Teal** | Idgham | Merging with or without Ghunnah |
+| **Cyan** | Iqlab | Converting Noon Sakinah / Tanween to Meem before Baa |
+| **Dark Blue** | Tafkhim | Heavy / elevated letters (خصضغطقظ, heavy Ra, Allah) |
 
-- Obsidian v0.15.0+
-- Internet connection (API fetching)
+### QCF V4 Tajweed Mode (Aligned with Quran.com)
+
+| Color | Color Code | Quran.com Category | Scope |
+|-------|------------|---------------------|-------|
+| **Gray** | `#999999` | Silent letter | Unpronounced letters, Hamzatul Wasl, Lam Shamsiyyah |
+| **Light Pink** | `#FFC1E0` | Normal madd (2) | Natural 2-count elongation (Madd Tabee'i / Asli) |
+| **Orange** | `#FF8E3B` | Separated madd (2/4/6) | Madd Ja'iz Munfasil across words |
+| **Magenta / Pink** | `#FF5E8E` | Connected madd (4/5) | Madd Wajib Muttasil within same word |
+| **Red** | `#E30000` | Necessary madd (6) | Madd Lazim before sukoon / shaddah |
+| **Green** | `#26B55D` | Ghunna/ikhfa | Ghunnah, Ikhfa, Idgham with Ghunnah, Iqlab |
+| **Cyan** | `#00DEFF` | Qalqala (echo) | Bouncing sound on قطب جد |
+| **Dark Blue** | `#3C84D5` | Tafkhim (heavy) | Full mouth pronunciation on Isti'la letters, heavy Ra, Allah |
 
 ## Credits
 
-- Font: Uthmanic Hafs
-- Tajweed Data: AlQuran.cloud
-- Audio: Islamic Network CDN / Quran.com
-- Translation: Various (AlQuran.cloud, Quran.com, fawazahmed0/quran-api)
-- Tafsir: islamic.app API
+- **Quran Text & Tajweed**: [AlQuran.cloud](https://alquran.cloud) & [Quran.com API v4](https://quran.com)
+- **Calligraphy Fonts**: King Fahd Glorious Quran Printing Complex & [fonts.quran.ws](https://fonts.quran.ws)
+- **Audio CDN**: [Quran.com CDN](https://audio.qurancdn.com) & Islamic Network
+- **Translations**: Saheeh International, Dr. Mustafa Khattab (*The Clear Quran*), fawazahmed0/quran-api
+- **Tafsir**: [islamic.app API](https://islamic.app)

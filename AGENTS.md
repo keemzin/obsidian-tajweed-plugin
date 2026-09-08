@@ -2,21 +2,22 @@
 
 ## Overview
 
-Obsidian plugin that renders Quranic verses with Tajweed color-coding, audio playback, translation, transliteration, and tafsir. Uses Uthmanic Hafs font. Fetches from AlQuran.cloud API, Quran.com API v4, fawazahmed0/quran-api, and islamic.app tafsir API.
+Obsidian plugin that renders Quranic verses with Tajweed color-coding, audio playback, translation, transliteration, tafsir, and word-by-word interactive study cards. Supports both standard Uthmanic Hafs text and authentic QCF V4 Madani Mushaf typography. Fetches from AlQuran.cloud API, Quran.com API v4, fawazahmed0/quran-api, and islamic.app tafsir API with local disk caching.
 
 ## File Structure
 
 ```
 obsidian-tajweed-plugin/
-├── main.js          # Plugin logic (entry point, ~1270 lines)
+├── main.js          # Plugin logic (entry point, ~3350 lines)
 ├── styles.css       # All UI styles (loaded automatically by Obsidian)
 ├── manifest.json    # Plugin metadata
-├── AGENTS.md        # This file
-├── README.md        # User-facing docs
+├── AGENTS.md        # This file (Architecture & developer guide)
+├── README.md        # User-facing documentation
 └── data/
     ├── quran-tajweed.json            # Pre-tagged Tajweed text data
-    ├── surahs.json                   # Surah names/metadata
-    └── translation-en-sahih.json     # English translation
+    ├── qpc-v4.json                   # QCF V4 glyph mapping data
+    ├── surahs.json                   # Surah names and verse counts
+    └── translation-en-sahih.json     # Bundled English translation
 ```
 
 ## Architecture
@@ -27,123 +28,77 @@ obsidian-tajweed-plugin/
 
 | Section | Description |
 |---------|-------------|
-| Constants | `TAJWEED_COLORS`, `RULE_MAP`, `AVAILABLE_RECITERS`, `SURAHS` (inlined) |
-| `onload()` | Registers code block processors, settings tab, commands, editor menu |
-| Settings defaults/load/save | Defaults with `true` for audio/translation/transliteration; proper `!== undefined` checks |
+| Constants | `TAJWEED_COLORS`, `V4_TAJWEED_COLORS`, `V4_RULE_NAMES`, `RULE_MAP`, `TAJWEED_DETAILS`, `AVAILABLE_RECITERS`, `SURAHS` |
+| `onload()` | Registers code block processors, settings tab, commands, editor menu, palette style injection |
+| Settings defaults/load/save | Manages settings with boolean defaults, storage persistence via Obsidian Plugin API |
 | Parsers | `parseReciterFromSource()`, `parseAudioFromSource()`, `extractVerseReference()`, `removeParameters()` |
-| `renderQuranWithTajweed()` | Main render pipeline: nav bar → check cache → fetch API → parse Tajweed → build DOM → controls |
-| `parseTajweed()` | Converts `[rule[text]]` notation into colored `<span>` elements |
-| `createRangePlaybackControls()` | Creates controls bar (gear + play/stop/repeat) for ALL blocks |
-| `updateSourceParam()` | Vault API — persists gear toggles to source file, scoped to ` ```quran ` block |
-| `updateSourceRange()` | Vault API — persists nav range change to source file, matches exact oldRef |
-| Cache helpers | `getCache()`, `setCache()` using `localStorage` |
-| `enableAudio()` / `disableAudio()` | Show/hide audio players and controls |
-| `showTafsir()` | Fetches tafsir from islamic.app API, shows centered popover |
-| `QuranTajweedSettingTab` | Settings UI (reciter, font size, defaults, translation version, tafsir version) |
+| `getTajweedWords()` | Deterministic scanner parsing ayah text into word objects (`html`, `raw`, `rules`) without infinite loops |
+| `hasTafkhim()` | Phonetic analyzer identifying Isti'la letters, heavy Ra, and the majestic name of Allah |
+| `renderStandardVerse()` | Renders standard Uthmanic Hafs text with Tajweed span coloring and word interactivity |
+| `renderQulV4Verse()` | Renders authentic QCF V4 PUA glyphs with COLRv1 embedded font palettes and word interactivity |
+| `showWordPopover()` | Centered/anchored card showing word transliteration, translation, audio, and Tajweed rule cards |
+| `getWbwData()` | Fetches or retrieves cached word-by-word translations and pronunciations from Quran.com |
+| `getSurahTafsir()` | Chapter-level tafsir fetching with caching for instant verse commentary and thematic detection |
+| `createRangePlaybackControls()` | Controls bar (gear menu + play/stop/repeat dropdown) for verse ranges |
+| `updateSourceParam()` | Vault API — persists gear toggles directly to the active note without leaving Reading view |
+| `updateSourceRange()` | Vault API — persists surah/verse dropdown changes to the note |
+| Cache helpers | `getDiskCache()`, `setDiskCache()` using Obsidian's `Vault.adapter` for persistent storage |
+| `QuranTajweedSettingTab` | Complete settings UI for fonts, layout, tafsir placement, audio, WBW, and V4 mode |
 
-### Data flow
+### Data Flow
 
 ```
-Code block (e.g., ```quran 1:1-5```)
+Code block (e.g., ```quran 32:1-5```)
   → registerMarkdownCodeBlockProcessor('quran')
     → renderQuranWithTajweed()
-      → extractVerseReference()  → parse "1:1-5"
-      → getCache() → check localStorage for surah data
-        → miss: fetch() from AlQuran.cloud API (Arabic + Transliteration)
-                → setCache() → store in localStorage
-        → hit: skip network entirely (0 requests)
-      → fetch translation (quran-com / fawazahmed / alquran-cloud sources)
-      → parseTajweed() → regex replaces [rule[text]] with <span class="tajweed-xxx">
-      → createRangePlaybackControls() (always, gear button + play/stop/repeat)
-      → createAudioPlayer() per verse (if audio on)
+      → extractVerseReference() → parse "32:1-5"
+      → check disk cache for Arabic Tajweed text & translations
+        → miss: fetch from API / bundled JSON → cache to disk
+        → hit: load from disk in 0 network requests
+      → if experimentalV4Tajweed:
+          → load QCF V4 page font & render pre-shaped glyphs
+          → attach word interactivity with Quran.com-aligned Tajweed rules & Tafkhim
+      → else:
+          → getTajweedWords() → build interactive words with Tajweed CSS classes
+      → createRangePlaybackControls() (gear icon + range play/repeat)
+      → render inline or popover Tafsir (based on settings)
 ```
 
-### Gear popover → source editing
+### Word-by-Word Interactivity Flow
 
 ```
-Gear toggle clicked
-  → applyToggle()  → instant DOM update (show/hide translation/transliteration/audio)
-  → updateSourceParam() → vault.read → find ```quran block → update param line → vault.modify
-  → Obsidian re-renders the block with new params (persists across reloads)
+User clicks or hovers word
+  → attachWordInteractivity() triggers showWordPopover()
+  → getWbwData(surah, ayah) retrieves word meaning & audio from disk cache
+  → rules displayed with color dots (standard or Quran.com V4 colors)
+  → positionWordPopover() adjusts position ensuring it never overflows viewport
 ```
 
-### Nav dropdown → source editing
+### Key Design Decisions
 
-```
-Surah/verse dropdown changed
-  → renderQuranWithTajweed() → instant re-render with new range
-  → updateSourceRange() → vault.read → find ```quran block matching oldRef → update reference → vault.modify
-  → Obsidian re-renders with updated range (persists across reloads)
-```
-
-### Key design decisions
-
-- **Settings defaults**: `defaultAudio: true`, `defaultTranslation: true`, `defaultTransliteration: true`
-- **Command palette**: inserts ` ```quran\naudio="on"\ntranslation="on"\ntransliteration="on"\n1:1\n``` `
-- **Inline SVGs** for play/stop/gear icons (no emoji)
-- **Vault API** (`app.vault.read`/`modify`) for source persistence — works on mobile and desktop
-- **Multi-block safety**: `updateSourceParam` and `updateSourceRange` scope searches to ` ```quran ` block boundaries and match exact old values
-- **Cache key includes source name** to bust stale entries: `quran-surah-{n}-trans-{source}-{versionId}`
-- **Translation sources**: `alquran-cloud`, `quran-com`, `fawazahmed`
-- **Tafsir**: fetched from `api.islamic.app/v1/verses/by_key/{surah}:{verse}?tafsirs={slug}`, centered popover
-- **`getSectionInfo`** wrapped in try-catch for mobile compatibility
-
-### Experimental QCF V4 Tajweed
-
-The `experimentalV4Tajweed` setting (off by default) enables rendering using the **QCF V4 page-glyph font** from fonts.quran.ws. These fonts provide authentic Madani Mushaf calligraphy using pre-shaped PUA (Private Use Area) codepoints per verse. Unlike the standard mode, colors are NOT applied (the fonts do not have embedded color tables) — this mode prioritises authentic calligraphy over colouring. Tajweed marks are present in the calligraphy itself.
-
-**Data flow:**
-```
-Setting enabled → getV4GlyphData() → fetch JSON from fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json
-  → cache in localStorage (key: quran-v4-glyphs)
-  → collect all unique page numbers across the verse range
-  → ensureV4FontLoaded(page) → inject @font-face for each page font from fonts.quran.ws
-  → renderV4GlyphText() → set PUA glyph text + per-page font-family inline
-```
-
-**Font source:** `https://fonts.quran.ws/assets/fonts/qpc-hafs-v4/QCF4_Hafs_{NN}_W.ttf` (47 per-group TTF fonts)
-**Glyph data source:** `https://fonts.quran.ws/bundles/qpc-hafs-v4/quran-glyphs.json` — 6236 verses, each with `chunks: [{p, family, file, text}]` where `text` contains PUA codepoints
-
-**Key details:**
-- 47 per-group font files (each covers a ~13-page range), loaded as needed
-- PUA codepoints encode pre-shaped words for accurate page-like rendering
-- Falls back to standard `parseTajweed()` CSS coloring if V4 data fails to load
-- Wrapping on mobile requires `unicode-bidi: bidi-override` and `overflow-wrap: anywhere` on `.quran-verse-text`
-- Audio, translation, transliteration, nav bar all work identically in V4 mode
-
-**Adding to settings:** Follow the standard pattern (default in `onload()`, load in `loadSettings()`, save in `saveSettings()`, UI in `QuranTajweedSettingTab.display()`).
+- **Deterministic Bracket Scanner**: `getTajweedWords()` uses regex matching `/^\[([a-z])(?::\d+)?\[/` guaranteeing cursor advancement on every branch, preventing infinite loops on non-rule brackets like `[ٮٰ]`.
+- **Quran.com V4 Color Alignment**: `V4_TAJWEED_COLORS` and `V4_RULE_NAMES` strictly mirror the 8 categories from Quran.com's V4 Tajweed Mushaf (Silent letter, Normal madd, Separated madd, Connected madd, Necessary madd, Ghunna/ikhfa, Qalqala, Tafkhim).
+- **Phonetic Tafkhim Detection**: `hasTafkhim()` identifies heavy letters (`خصضغطقظ`, heavy Ra `ر`, and `اللَّه`) while respecting Tarqiq cases (`رِ`, `فِرْعَوْن`, etc.).
+- **Vault API Persistence**: Modifies active note contents in-place when using the header navigation dropdowns or gear toggles, functioning identically on desktop and mobile.
+- **Thematic Tafsir Detection**: Evaluates commentary presence per verse to suppress redundant "Tafsir" buttons on verses without dedicated commentary.
 
 ## Code Conventions
 
-- **No comments** in code — keep logic self-explanatory
-- **No emoji in code** — only use emoji in log messages if needed
+- **No comments in code** — keep logic self-explanatory
+- **No emoji in code** — only use emoji in user-facing UI labels if strictly required
 - **CSS variables** — use Obsidian's `var(--background-primary)`, `var(--interactive-accent)`, etc.
-- **Classes prefixed with `quran-`** — avoid conflicts with other plugins
+- **Classes prefixed with `quran-`** — avoid naming collisions with Obsidian or other plugins
 
 ## How to Make Changes
 
-### Adding a new feature
+### Adding a Tajweed Rule
+1. Add rule mapping to `RULE_MAP` in `main.js`
+2. Add descriptive metadata in `TAJWEED_DETAILS`
+3. Add theme styling to `styles.css` under `.tajweed-<rule>`
+4. If applicable to V4, map the rule in `V4_TAJWEED_COLORS` and `V4_RULE_NAMES`
 
-1. Add CSS class rules to `styles.css`
-2. Add logic in `main.js` following existing patterns
-3. If adding a setting, add to: `onload()` defaults, `loadSettings()` / `saveSettings()`, `QuranTajweedSettingTab.display()`
+### Updating Styles
+Edit `styles.css` directly — Obsidian reloads stylesheet changes automatically.
 
-### Adding a reciter
-
-Add entry to `AVAILABLE_RECITERS` with `identifier`, `name`, `quranComName` (matches Quran.com CDN directory).
-
-### Updating CSS
-
-Edit `styles.css` only — Obsidian auto-loads it.
-
-### Tajweed colors
-
-Edit `TAJWEED_COLORS` in `main.js` and corresponding CSS classes in `styles.css`.
-
-## Troubleshooting
-
-- **Verses not loading** — Check internet connection; API at alquran.cloud must be reachable
-- **Audio not playing** — Verify reciter identifier matches Quran.com CDN paths
-- **Plugin not appearing** — Ensure `main.js` and `manifest.json` are in `.obsidian/plugins/quran-tajweed/`
-- **Styles broken** — Check that `styles.css` exists in the plugin root directory
-- **Settings changes not persisting** — Gear popover updates source file directly; if issues occur, force-close Obsidian to clear cache
+### Adding a Reciter
+Add an entry to `AVAILABLE_RECITERS` with `identifier`, `name`, and `quranComName`.
