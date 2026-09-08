@@ -604,10 +604,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         if (this._wbwCache[key]) return this._wbwCache[key];
 
         const storageKey = `quran-wbw-${surah}-${ayah}`;
-        const local = this.getCache(storageKey);
-        if (local) {
-            this._wbwCache[key] = local;
-            return local;
+        const cached = await this.getDiskCache(storageKey);
+        if (cached && cached.length > 0) {
+            this._wbwCache[key] = cached;
+            return cached;
         }
 
         try {
@@ -615,12 +615,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const data = await this.fetchJson(url);
             const words = data?.verse?.words || [];
             if (words.length > 0) {
-                this.setCache(storageKey, words);
+                await this.setDiskCache(storageKey, words);
                 this._wbwCache[key] = words;
                 return words;
             }
         } catch {}
-        return [];
+        return cached || [];
     }
 
     positionWordPopover(popover, targetEl) {
@@ -1881,6 +1881,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     ve.div.appendChild(ap);
                     ve.audioPlayer = ap;
                 });
+            }
+
+            for (let a = startVerse; a <= endVerse; a++) {
+                this.getWbwData(surah, a).catch(() => {});
             }
 
             const surahName = SURAHS.find(s => s.number === surah)?.name || `Surah ${surah}`;
