@@ -41,6 +41,109 @@ const RULE_MAP = {
     'b': 'idgh_mus'
 };
 
+const TAJWEED_DETAILS = {
+    'ham_wasl': {
+        name: 'Hamzatul Wasl',
+        arabic: 'همزة الوصل',
+        desc: 'Connecting Hamza — silent when continuing recitation; pronounced when starting recitation with it.',
+        color: '#AAAAAA'
+    },
+    'slnt': {
+        name: 'Silent Letter',
+        arabic: 'حرف ساقط',
+        desc: 'Unpronounced letter (such as Lam Shamsiyyah or silent Alif/Waw/Yaa).',
+        color: '#AAAAAA'
+    },
+    'madda_normal': {
+        name: 'Madd Asli (Normal Prolongation)',
+        arabic: 'مد أصلي',
+        duration: '2 counts',
+        desc: 'Natural elongation held for 2 harakat (counts) on Alif, Waw, or Yaa.',
+        color: '#537FFF'
+    },
+    'madda_permissible': {
+        name: "Madd Ja'iz (Permissible Prolongation)",
+        arabic: 'مد جائز منفصل',
+        duration: '2, 4, or 5 counts',
+        desc: 'Separated prolongation when a letter of Madd is followed by Hamzah in the next word.',
+        color: '#4050FF'
+    },
+    'madda_necessary': {
+        name: 'Madd Lazim (Compulsory Prolongation)',
+        arabic: 'مد لازم',
+        duration: '6 counts',
+        desc: 'Compulsory prolongation before an original sukoon or shaddah; held for 6 full harakat.',
+        color: '#000EBC'
+    },
+    'madda_obligatory': {
+        name: 'Madd Wajib (Obligatory Prolongation)',
+        arabic: 'مد واجب متصل',
+        duration: '4 or 5 counts',
+        desc: 'Connected prolongation when Madd letter and Hamzah appear within the same word; held for 4-5 harakat.',
+        color: '#2144C1'
+    },
+    'qlq': {
+        name: 'Qalqalah (Echoing / Bounce)',
+        arabic: 'قلقلة',
+        desc: 'Sharp bouncing or echoing sound produced on letters of قطب جد (Qaf, Taa, Ba, Jeem, Dal) when carrying sukoon.',
+        color: '#DD0008'
+    },
+    'ghn': {
+        name: 'Ghunnah (Nasalization)',
+        arabic: 'غنة',
+        duration: '2 counts',
+        desc: 'Nasal resonance originating from the nasal passage; held for 2 counts on Noon or Meem with Shaddah (نّ / مّ).',
+        color: '#FFA050'
+    },
+    'ikhf': {
+        name: 'Ikhfa (Concealment)',
+        arabic: 'إخفاء حقيقي',
+        duration: '2 counts',
+        desc: 'Concealing Noon Sakinah or Tanween before any of the 15 Ikhfa letters, with a light nasal sound held for 2 counts.',
+        color: '#9400A8'
+    },
+    'ikhf_shfw': {
+        name: 'Ikhfa Shafawi (Labial Concealment)',
+        arabic: 'إخفاء شفوي',
+        duration: '2 counts',
+        desc: 'Concealing Meem Sakinah before the letter Baa (ب) with light nasal resonance held for 2 counts.',
+        color: '#D500B7'
+    },
+    'idghm_shfw': {
+        name: 'Idgham Shafawi (Labial Merging)',
+        arabic: 'إدغام شفوي',
+        duration: '2 counts',
+        desc: 'Merging Meem Sakinah into another Meem (م) with full Ghunnah held for 2 counts.',
+        color: '#58B800'
+    },
+    'iqlb': {
+        name: 'Iqlab (Conversion)',
+        arabic: 'إقلاب',
+        duration: '2 counts',
+        desc: 'Converting Noon Sakinah or Tanween into an unpronounced Meem before the letter Baa (ب), with Ghunnah held for 2 counts.',
+        color: '#26BFFD'
+    },
+    'idgh_ghn': {
+        name: 'Idgham with Ghunnah',
+        arabic: 'إدغام بغنة',
+        duration: '2 counts',
+        desc: 'Merging Noon Sakinah or Tanween into letters of ينمو (Yaa, Noon, Meem, Waw) with 2-count nasal resonance.',
+        color: '#169777'
+    },
+    'idgh_w_ghn': {
+        name: 'Idgham without Ghunnah',
+        arabic: 'إدغام بغير غنة',
+        desc: 'Merging Noon Sakinah or Tanween completely into Laam (ل) or Raa (ر) with no nasal resonance.',
+        color: '#169200'
+    },
+    'idgh_mus': {
+        name: 'Idgham Mutajanisayn / Mutaqaribayn',
+        arabic: 'إدغام متجانسين / متقاربين',
+        desc: 'Merging two letters that share the same or close articulation point (e.g. Dal into Taa or Baa into Meem).',
+        color: '#A1A1A1'
+    }
+};
+
 // Default reciter
 const TRANSLATION_VERSIONS = [
     { id: 'en.sahih', name: 'Saheeh International (English)', source: 'alquran-cloud', apiId: 'en.sahih' },
@@ -325,6 +428,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         document.getElementById('quran-v4-palette-styles')?.remove();
         document.querySelector('.quran-page-index')?.remove();
         document.querySelector('.quran-mini-player')?.remove();
+        this.closeWordPopover();
     }
 
     getPluginDir() {
@@ -433,6 +537,15 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             wordSpan.style.fontFamily = `'qul-v4-p${page}', serif`;
             wordSpan.style.unicodeBidi = 'bidi-override';
             wordSpan.textContent = glyphEntry.text;
+
+            const nextKey = `${surah}:${ayah}:${w + 1}`;
+            const isAyahMarker = !this._qpcV4Data[nextKey];
+            if (!isAyahMarker) {
+                const currentPos = w;
+                const rules = this.getTajweedRulesForWord(verse.text, currentPos);
+                this.attachWordInteractivity(wordSpan, surah, ayah, currentPos, rules, null);
+            }
+
             wordNodes.push(wordSpan);
             wordNodes.push(document.createTextNode(' '));
             w++;
@@ -444,6 +557,202 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             return true;
         }
         return false;
+    }
+
+    renderStandardVerse(textSpan, surah, verse) {
+        const ayah = verse.numberInSurah;
+        const rawWords = (verse.text || '').trim().split(/\s+/);
+        for (let i = 0; i < rawWords.length; i++) {
+            const rawWord = rawWords[i];
+            const wordPos = i + 1;
+            const wordSpan = document.createElement('span');
+            wordSpan.className = 'quran-word';
+            wordSpan.innerHTML = this.parseTajweed(rawWord);
+
+            const rules = this.getTajweedRulesForWord(verse.text, wordPos);
+            this.attachWordInteractivity(wordSpan, surah, ayah, wordPos, rules, rawWord);
+
+            textSpan.appendChild(wordSpan);
+            if (i < rawWords.length - 1) {
+                textSpan.appendChild(document.createTextNode(' '));
+            }
+        }
+    }
+
+    getTajweedRulesForWord(verseText, wordPos) {
+        if (!verseText) return [];
+        const words = verseText.trim().split(/\s+/);
+        const targetWord = words[wordPos - 1];
+        if (!targetWord) return [];
+
+        const rules = [];
+        const re = /\[([a-z])(?::\d+)?\[([^\]]+)\]/g;
+        let m;
+        while ((m = re.exec(targetWord)) !== null) {
+            const ruleCode = m[1];
+            const ruleClass = RULE_MAP[ruleCode];
+            if (ruleClass && !rules.includes(ruleClass)) {
+                rules.push(ruleClass);
+            }
+        }
+        return rules;
+    }
+
+    async getWbwData(surah, ayah) {
+        if (!this._wbwCache) this._wbwCache = {};
+        const key = `${surah}:${ayah}`;
+        if (this._wbwCache[key]) return this._wbwCache[key];
+
+        const storageKey = `quran-wbw-${surah}-${ayah}`;
+        const local = this.getCache(storageKey);
+        if (local) {
+            this._wbwCache[key] = local;
+            return local;
+        }
+
+        try {
+            const url = `https://api.quran.com/api/v4/verses/by_key/${surah}:${ayah}?words=true&word_fields=translation,transliteration`;
+            const data = await this.fetchJson(url);
+            const words = data?.verse?.words || [];
+            if (words.length > 0) {
+                this.setCache(storageKey, words);
+                this._wbwCache[key] = words;
+                return words;
+            }
+        } catch {}
+        return [];
+    }
+
+    positionWordPopover(popover, targetEl) {
+        if (!popover || !targetEl) return;
+        const rect = targetEl.getBoundingClientRect();
+        const popoverWidth = Math.min(300, window.innerWidth - 20);
+        let left = rect.left + (rect.width / 2) - (popoverWidth / 2);
+        if (left < 10) left = 10;
+        if (left + popoverWidth > window.innerWidth - 10) {
+            left = window.innerWidth - popoverWidth - 10;
+        }
+
+        let top = rect.bottom + 8;
+        const estimatedHeight = 220;
+        if (top + estimatedHeight > window.innerHeight && rect.top > estimatedHeight) {
+            top = rect.top - estimatedHeight - 8;
+        }
+
+        popover.style.left = `${left}px`;
+        popover.style.top = `${top}px`;
+        popover.style.width = `${popoverWidth}px`;
+    }
+
+    closeWordPopover() {
+        const existing = document.querySelector('.quran-word-popover');
+        if (existing) existing.remove();
+        this._activeWordKey = null;
+    }
+
+    async showWordPopover(targetEl, surah, ayah, wordPos, rules, rawWordText) {
+        const wordKey = `${surah}:${ayah}:${wordPos}`;
+        this.closeWordPopover();
+        this._activeWordKey = wordKey;
+
+        const wbwWords = await this.getWbwData(surah, ayah);
+        if (this._activeWordKey !== wordKey) return;
+
+        const wbw = wbwWords.find(item => item.position === wordPos) || (wordPos <= wbwWords.length ? wbwWords[wordPos - 1] : null);
+
+        const arabicDisplay = rawWordText ? rawWordText.replace(/\[[a-z](?::\d+)?\[([^\]]+)\]/g, '$1') : (wbw?.text_uthmani || targetEl.textContent || '');
+        const transliteration = wbw?.transliteration?.text || '';
+        const translation = wbw?.translation?.text || '';
+        const audioUrl = wbw?.audio_url ? `https://audio.qurancdn.com/${wbw.audio_url}` : null;
+
+        let html = `
+            <div class="quran-word-popover-header">
+                <div class="quran-word-popover-arabic">${arabicDisplay}</div>
+                <div class="quran-word-popover-meta">
+                    ${transliteration ? `<span class="quran-word-popover-translit">${transliteration}</span>` : ''}
+                    ${audioUrl ? `<button class="quran-word-audio-btn" title="Play pronunciation"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>` : ''}
+                </div>
+            </div>
+            ${translation ? `<div class="quran-word-popover-trans">${translation}</div>` : ''}
+        `;
+
+        if (rules && rules.length > 0) {
+            html += `<div class="quran-word-popover-tajweed-title">Tajweed Rules</div>`;
+            for (const r of rules) {
+                const det = TAJWEED_DETAILS[r];
+                if (!det) continue;
+                html += `
+                    <div class="quran-word-rule-card">
+                        <div class="quran-word-rule-header">
+                            <span class="quran-word-rule-dot" style="background-color: ${det.color};"></span>
+                            <span class="quran-word-rule-name">${det.name}</span>
+                            <span class="quran-word-rule-arabic">${det.arabic}</span>
+                            ${det.duration ? `<span class="quran-word-rule-duration">${det.duration}</span>` : ''}
+                        </div>
+                        <div class="quran-word-rule-desc">${det.desc}</div>
+                    </div>
+                `;
+            }
+        } else {
+            html += `<div class="quran-word-popover-tajweed-title">Tajweed</div><div class="quran-word-popover-no-rules">Normal pronunciation (no special rule).</div>`;
+        }
+
+        const popover = document.createElement('div');
+        popover.className = 'quran-word-popover';
+        popover.innerHTML = html;
+        document.body.appendChild(popover);
+
+        this.positionWordPopover(popover, targetEl);
+
+        const audioBtn = popover.querySelector('.quran-word-audio-btn');
+        if (audioBtn && audioUrl) {
+            audioBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const a = new Audio(audioUrl);
+                a.play().catch(() => {});
+            });
+        }
+
+        const closeHandler = (e) => {
+            if (!popover.contains(e.target) && !targetEl.contains(e.target)) {
+                this.closeWordPopover();
+                document.removeEventListener('click', closeHandler, true);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+    }
+
+    attachWordInteractivity(wordSpan, surah, ayah, wordPos, rules, rawWordText) {
+        wordSpan.classList.add('quran-interactive-word');
+        const wordKey = `${surah}:${ayah}:${wordPos}`;
+        let hoverTimeout = null;
+
+        wordSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+                hoverTimeout = null;
+            }
+            if (this._activeWordKey === wordKey) {
+                this.closeWordPopover();
+                return;
+            }
+            this.showWordPopover(wordSpan, surah, ayah, wordPos, rules, rawWordText);
+        });
+
+        wordSpan.addEventListener('mouseenter', () => {
+            if (this._activeWordKey === wordKey) return;
+            hoverTimeout = setTimeout(() => {
+                this.showWordPopover(wordSpan, surah, ayah, wordPos, rules, rawWordText);
+            }, 350);
+        });
+
+        wordSpan.addEventListener('mouseleave', () => {
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+                hoverTimeout = null;
+            }
+        });
     }
 
     getTajweedClassForWord(verseText, wordPos) {
@@ -1525,13 +1834,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     rendered = this.renderQulV4Verse(textSpan, surah, verse, pageMap);
                 }
                 if (!rendered) {
-                    textSpan.innerHTML = this.parseTajweed(verse.text);
+                    this.renderStandardVerse(textSpan, surah, verse);
                 }
-                textSpan.addEventListener('click', (e) => {
-                    if (!window.getSelection().toString()) {
-                        this.showTafsir(e, surah, verse.numberInSurah);
-                    }
-                });
 
                 if (this.settings.showVerseNumbers) {
                     const verseNum = textContainer.createSpan({ cls: 'verse-number' });
@@ -1553,6 +1857,14 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     transliterationDiv.innerHTML = `<span class="quran-transliteration-prefix">Transliteration:</span>${transliterationVerses[i].text}`;
                     if (!transliterationEnabled) transliterationDiv.style.display = 'none';
                 }
+
+                const actionsDiv = verseDiv.createDiv({ cls: 'quran-verse-actions' });
+                const tafsirBtn = actionsDiv.createEl('button', { cls: 'quran-action-btn quran-tafsir-btn' });
+                tafsirBtn.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg><span>Tafsir</span>`;
+                tafsirBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.showTafsir(e, surah, verse.numberInSurah);
+                });
 
                 let audioPlayer = null;
                 verseElements.push({ div: verseDiv, translationDiv, transliterationDiv, audioPlayer });
