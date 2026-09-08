@@ -39,7 +39,10 @@ obsidian-tajweed-plugin/
 | `showWordPopover()` | Centered/anchored card showing word transliteration, translation, audio, and Tajweed rule cards |
 | `getWbwData()` | Fetches or retrieves cached word-by-word translations and pronunciations from Quran.com |
 | `getSurahTafsir()` | Chapter-level tafsir fetching with caching for instant verse commentary and thematic detection |
-| `createRangePlaybackControls()` | Controls bar (gear menu + play/stop/repeat dropdown) for verse ranges |
+| `createRangePlaybackControls()` | Controls bar (header `+` add button, gear settings menu, play/stop/repeat dropdown) |
+| `getNextRange()` | Deterministic range calculator computing sequential verse segments across surah boundaries |
+| `insertQuranBlock()` | Vault API — inserts sequential Quran blocks above or below in note with inherited settings and auto-scroll |
+| `deleteQuranBlock()` | Vault API — cleanly removes targeted Quran block from note with confirmation protection |
 | `updateSourceParam()` | Vault API — persists gear toggles directly to the active note without leaving Reading view |
 | `updateSourceRange()` | Vault API — persists surah/verse dropdown changes to the note |
 | Cache helpers | `getDiskCache()`, `setDiskCache()` using Obsidian's `Vault.adapter` for persistent storage |

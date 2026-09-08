@@ -55,7 +55,9 @@ reciter="ar.abdulbasit" audio="on" translation="on"
 ### Interactive Controls
 
 - **Navigation Header**: Quickly switch surah or verse ranges using the dropdowns — updates your note source file automatically.
-- **Gear Icon**: Toggle Translation, Transliteration, and Audio on or off without switching to Edit view.
+- **Quick Block Creation (`+`)**: Click the `+` button in the header to either continue sequentially (`Continue below / above`) or insert a fresh starter block (`New block below / above 1:1`) so you can pick any surah and ayahs manually.
+- **Continuous Reading & New Block Footer**: At the bottom of each block, click `+ Continue with Surah X:Y–Z` to keep reading, or `+ New block (1:1)` to start another passage from scratch.
+- **Gear Settings & Delete**: Toggle Translation, Transliteration, and Audio on or off directly from the note, or safely remove the block via **Delete block** (with two-step confirmation).
 - **Range Player**: Play the selected verse sequence with repeat loops; automatically stops other playing blocks.
 - **Word-by-Word Popover**: Click or hover any word to open the study card with word pronunciation, translation, and Tajweed rule explanation.
 - **Tafsir Button / Inline Tafsir**: Read thematic commentary for each verse directly in your note or in a centered modal.

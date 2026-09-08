@@ -1,4 +1,4 @@
-const { Plugin, PluginSettingTab, Setting, MarkdownView, requestUrl } = require('obsidian');
+const { Plugin, PluginSettingTab, Setting, MarkdownView, requestUrl, Notice } = require('obsidian');
 const SURAHS = [{ number: 1, name: "Al-Faatiha", ayahs: 7 }, { number: 2, name: "Al-Baqara", ayahs: 286 }, { number: 3, name: "Aal-i-Imraan", ayahs: 200 }, { number: 4, name: "An-Nisaa", ayahs: 176 }, { number: 5, name: "Al-Maaida", ayahs: 120 }, { number: 6, name: "Al-An'aam", ayahs: 165 }, { number: 7, name: "Al-A'raaf", ayahs: 206 }, { number: 8, name: "Al-Anfaal", ayahs: 75 }, { number: 9, name: "At-Tawba", ayahs: 129 }, { number: 10, name: "Yunus", ayahs: 109 }, { number: 11, name: "Hud", ayahs: 123 }, { number: 12, name: "Yusuf", ayahs: 111 }, { number: 13, name: "Ar-Ra'd", ayahs: 43 }, { number: 14, name: "Ibrahim", ayahs: 52 }, { number: 15, name: "Al-Hijr", ayahs: 99 }, { number: 16, name: "An-Nahl", ayahs: 128 }, { number: 17, name: "Al-Israa", ayahs: 111 }, { number: 18, name: "Al-Kahf", ayahs: 110 }, { number: 19, name: "Maryam", ayahs: 98 }, { number: 20, name: "Taa-Haa", ayahs: 135 }, { number: 21, name: "Al-Anbiyaa", ayahs: 112 }, { number: 22, name: "Al-Hajj", ayahs: 78 }, { number: 23, name: "Al-Muminoon", ayahs: 118 }, { number: 24, name: "An-Noor", ayahs: 64 }, { number: 25, name: "Al-Furqaan", ayahs: 77 }, { number: 26, name: "Ash-Shu'araa", ayahs: 227 }, { number: 27, name: "An-Naml", ayahs: 93 }, { number: 28, name: "Al-Qasas", ayahs: 88 }, { number: 29, name: "Al-Ankaboot", ayahs: 69 }, { number: 30, name: "Ar-Room", ayahs: 60 }, { number: 31, name: "Luqman", ayahs: 34 }, { number: 32, name: "As-Sajda", ayahs: 30 }, { number: 33, name: "Al-Ahzaab", ayahs: 73 }, { number: 34, name: "Saba", ayahs: 54 }, { number: 35, name: "Faatir", ayahs: 45 }, { number: 36, name: "Yaseen", ayahs: 83 }, { number: 37, name: "As-Saaffaat", ayahs: 182 }, { number: 38, name: "Saad", ayahs: 88 }, { number: 39, name: "Az-Zumar", ayahs: 75 }, { number: 40, name: "Ghafir", ayahs: 85 }, { number: 41, name: "Fussilat", ayahs: 54 }, { number: 42, name: "Ash-Shura", ayahs: 53 }, { number: 43, name: "Az-Zukhruf", ayahs: 89 }, { number: 44, name: "Ad-Dukhaan", ayahs: 59 }, { number: 45, name: "Al-Jaathiya", ayahs: 37 }, { number: 46, name: "Al-Ahqaf", ayahs: 35 }, { number: 47, name: "Muhammad", ayahs: 38 }, { number: 48, name: "Al-Fath", ayahs: 29 }, { number: 49, name: "Al-Hujuraat", ayahs: 18 }, { number: 50, name: "Qaaf", ayahs: 45 }, { number: 51, name: "Adh-Dhaariyat", ayahs: 60 }, { number: 52, name: "At-Tur", ayahs: 49 }, { number: 53, name: "An-Najm", ayahs: 62 }, { number: 54, name: "Al-Qamar", ayahs: 55 }, { number: 55, name: "Ar-Rahmaan", ayahs: 78 }, { number: 56, name: "Al-Waaqia", ayahs: 96 }, { number: 57, name: "Al-Hadid", ayahs: 29 }, { number: 58, name: "Al-Mujaadila", ayahs: 22 }, { number: 59, name: "Al-Hashr", ayahs: 24 }, { number: 60, name: "Al-Mumtahana", ayahs: 13 }, { number: 61, name: "As-Saff", ayahs: 14 }, { number: 62, name: "Al-Jumu'a", ayahs: 11 }, { number: 63, name: "Al-Munaafiqoon", ayahs: 11 }, { number: 64, name: "At-Taghaabun", ayahs: 18 }, { number: 65, name: "At-Talaaq", ayahs: 12 }, { number: 66, name: "At-Tahrim", ayahs: 12 }, { number: 67, name: "Al-Mulk", ayahs: 30 }, { number: 68, name: "Al-Qalam", ayahs: 52 }, { number: 69, name: "Al-Haaqqa", ayahs: 52 }, { number: 70, name: "Al-Ma'aarij", ayahs: 44 }, { number: 71, name: "Nooh", ayahs: 28 }, { number: 72, name: "Al-Jinn", ayahs: 28 }, { number: 73, name: "Al-Muzzammil", ayahs: 20 }, { number: 74, name: "Al-Muddaththir", ayahs: 56 }, { number: 75, name: "Al-Qiyaama", ayahs: 40 }, { number: 76, name: "Al-Insaan", ayahs: 31 }, { number: 77, name: "Al-Mursalaat", ayahs: 50 }, { number: 78, name: "An-Naba", ayahs: 40 }, { number: 79, name: "An-Naazi'aat", ayahs: 46 }, { number: 80, name: "Abasa", ayahs: 42 }, { number: 81, name: "At-Takwir", ayahs: 29 }, { number: 82, name: "Al-Infitaar", ayahs: 19 }, { number: 83, name: "Al-Mutaffifin", ayahs: 36 }, { number: 84, name: "Al-Inshiqaaq", ayahs: 25 }, { number: 85, name: "Al-Burooj", ayahs: 22 }, { number: 86, name: "At-Taariq", ayahs: 17 }, { number: 87, name: "Al-A'laa", ayahs: 19 }, { number: 88, name: "Al-Ghaashiya", ayahs: 26 }, { number: 89, name: "Al-Fajr", ayahs: 30 }, { number: 90, name: "Al-Balad", ayahs: 20 }, { number: 91, name: "Ash-Shams", ayahs: 15 }, { number: 92, name: "Al-Lail", ayahs: 21 }, { number: 93, name: "Ad-Dhuhaa", ayahs: 11 }, { number: 94, name: "Ash-Sharh", ayahs: 8 }, { number: 95, name: "At-Tin", ayahs: 8 }, { number: 96, name: "Al-Alaq", ayahs: 19 }, { number: 97, name: "Al-Qadr", ayahs: 5 }, { number: 98, name: "Al-Bayyina", ayahs: 8 }, { number: 99, name: "Az-Zalzala", ayahs: 8 }, { number: 100, name: "Al-Aadiyaat", ayahs: 11 }, { number: 101, name: "Al-Qaari'a", ayahs: 11 }, { number: 102, name: "At-Takaathur", ayahs: 8 }, { number: 103, name: "Al-Asr", ayahs: 3 }, { number: 104, name: "Al-Humaza", ayahs: 9 }, { number: 105, name: "Al-Fil", ayahs: 5 }, { number: 106, name: "Quraish", ayahs: 4 }, { number: 107, name: "Al-Maa'un", ayahs: 7 }, { number: 108, name: "Al-Kawthar", ayahs: 3 }, { number: 109, name: "Al-Kaafiroon", ayahs: 6 }, { number: 110, name: "An-Nasr", ayahs: 3 }, { number: 111, name: "Al-Masad", ayahs: 5 }, { number: 112, name: "Al-Ikhlaas", ayahs: 4 }, { number: 113, name: "Al-Falaq", ayahs: 5 }, { number: 114, name: "An-Naas", ayahs: 6 }];
 
 // Tajweed color mapping
@@ -1089,6 +1089,70 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         repeatContainer.appendChild(repeatDisplay);
         controls.audioControls.push(repeatContainer);
 
+        const nextRefBelow = this.getNextRange(surah, startVerse, endVerse, 'below');
+        const prevRefAbove = this.getNextRange(surah, startVerse, endVerse, 'above');
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'quran-add-btn';
+        addBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+        addBtn.title = 'Add Quran block';
+
+        const addPopover = document.createElement('div');
+        addPopover.className = 'quran-settings-popover quran-add-popover';
+        addPopover.style.display = 'none';
+
+        const addBelowRow = document.createElement('div');
+        addBelowRow.className = 'quran-settings-row quran-action-row';
+        addBelowRow.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg> Continue below (${nextRefBelow})</span>`;
+        addBelowRow.onclick = async (e) => {
+            e.stopPropagation();
+            addPopover.style.display = 'none';
+            await this.insertQuranBlock(container, 'below');
+        };
+
+        const addAboveRow = document.createElement('div');
+        addAboveRow.className = 'quran-settings-row quran-action-row';
+        addAboveRow.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg> Continue above (${prevRefAbove})</span>`;
+        addAboveRow.onclick = async (e) => {
+            e.stopPropagation();
+            addPopover.style.display = 'none';
+            await this.insertQuranBlock(container, 'above');
+        };
+
+        const addPopDivider = document.createElement('div');
+        addPopDivider.className = 'quran-settings-divider';
+
+        const addNewBelowRow = document.createElement('div');
+        addNewBelowRow.className = 'quran-settings-row quran-action-row';
+        addNewBelowRow.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New block below (1:1)</span>`;
+        addNewBelowRow.onclick = async (e) => {
+            e.stopPropagation();
+            addPopover.style.display = 'none';
+            await this.insertQuranBlock(container, 'below', '1:1');
+        };
+
+        const addNewAboveRow = document.createElement('div');
+        addNewAboveRow.className = 'quran-settings-row quran-action-row';
+        addNewAboveRow.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New block above (1:1)</span>`;
+        addNewAboveRow.onclick = async (e) => {
+            e.stopPropagation();
+            addPopover.style.display = 'none';
+            await this.insertQuranBlock(container, 'above', '1:1');
+        };
+
+        addPopover.appendChild(addBelowRow);
+        addPopover.appendChild(addAboveRow);
+        addPopover.appendChild(addPopDivider);
+        addPopover.appendChild(addNewBelowRow);
+        addPopover.appendChild(addNewAboveRow);
+
+        addBtn.onclick = (e) => {
+            e.stopPropagation();
+            const isVisible = addPopover.style.display !== 'none';
+            document.querySelectorAll('.quran-settings-popover').forEach(p => p.style.display = 'none');
+            addPopover.style.display = isVisible ? 'none' : 'block';
+        };
+
         const settingsBtn = document.createElement('button');
         settingsBtn.className = 'quran-settings-btn';
         settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
@@ -1122,6 +1186,87 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             settingsPopover.appendChild(row);
         });
 
+        const divider = document.createElement('div');
+        divider.className = 'quran-settings-divider';
+        settingsPopover.appendChild(divider);
+
+        const gearAddBelow = document.createElement('div');
+        gearAddBelow.className = 'quran-settings-row quran-action-row';
+        gearAddBelow.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg> Continue below (${nextRefBelow})</span>`;
+        gearAddBelow.onclick = async (e) => {
+            e.stopPropagation();
+            settingsPopover.style.display = 'none';
+            await this.insertQuranBlock(container, 'below');
+        };
+        settingsPopover.appendChild(gearAddBelow);
+
+        const gearAddAbove = document.createElement('div');
+        gearAddAbove.className = 'quran-settings-row quran-action-row';
+        gearAddAbove.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg> Continue above (${prevRefAbove})</span>`;
+        gearAddAbove.onclick = async (e) => {
+            e.stopPropagation();
+            settingsPopover.style.display = 'none';
+            await this.insertQuranBlock(container, 'above');
+        };
+        settingsPopover.appendChild(gearAddAbove);
+
+        const gearAddNew = document.createElement('div');
+        gearAddNew.className = 'quran-settings-row quran-action-row';
+        gearAddNew.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New block (1:1)</span>`;
+        gearAddNew.onclick = async (e) => {
+            e.stopPropagation();
+            settingsPopover.style.display = 'none';
+            await this.insertQuranBlock(container, 'below', '1:1');
+        };
+        settingsPopover.appendChild(gearAddNew);
+
+        const deleteDivider = document.createElement('div');
+        deleteDivider.className = 'quran-settings-divider';
+        settingsPopover.appendChild(deleteDivider);
+
+        const deleteRow = document.createElement('div');
+        deleteRow.className = 'quran-settings-row quran-delete-row';
+        deleteRow.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete block</span>`;
+        let confirmTimer = null;
+        deleteRow.onclick = async (e) => {
+            e.stopPropagation();
+            if (deleteRow.dataset.confirming === 'true') {
+                clearTimeout(confirmTimer);
+                settingsPopover.style.display = 'none';
+                await this.deleteQuranBlock(container);
+            } else {
+                deleteRow.dataset.confirming = 'true';
+                deleteRow.innerHTML = `<span class="quran-row-label quran-confirm-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Confirm delete?</span>`;
+                confirmTimer = setTimeout(() => {
+                    deleteRow.dataset.confirming = 'false';
+                    deleteRow.innerHTML = `<span class="quran-row-label"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete block</span>`;
+                }, 3500);
+            }
+        };
+        settingsPopover.appendChild(deleteRow);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'quran-settings-btn quran-header-delete-btn';
+        deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+        deleteBtn.title = 'Delete block';
+
+        let deleteBtnTimer = null;
+        deleteBtn.onclick = async (e) => {
+            e.stopPropagation();
+            if (deleteBtn.classList.contains('quran-confirm-delete')) {
+                clearTimeout(deleteBtnTimer);
+                deleteBtn.classList.remove('quran-confirm-delete');
+                await this.deleteQuranBlock(container);
+            } else {
+                deleteBtn.classList.add('quran-confirm-delete');
+                deleteBtn.title = 'Click again to confirm delete';
+                deleteBtnTimer = setTimeout(() => {
+                    deleteBtn.classList.remove('quran-confirm-delete');
+                    deleteBtn.title = 'Delete block';
+                }, 3500);
+            }
+        };
+
         settingsBtn.onclick = (e) => {
             e.stopPropagation();
             const isVisible = settingsPopover.style.display !== 'none';
@@ -1129,14 +1274,20 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             settingsPopover.style.display = isVisible ? 'none' : 'block';
         };
 
-        document.addEventListener('click', () => {
-            settingsPopover.style.display = 'none';
-        }, { capture: true });
+        const onDocClick = (e) => {
+            if (!controlsContainer.contains(e.target)) {
+                addPopover.style.display = 'none';
+                settingsPopover.style.display = 'none';
+            }
+        };
+        document.addEventListener('click', onDocClick);
 
         controlBar.appendChild(playBtn);
         controlBar.appendChild(stopBtn);
         controlBar.appendChild(repeatContainer);
+        controlBar.appendChild(addBtn);
         controlBar.appendChild(settingsBtn);
+        controlBar.appendChild(deleteBtn);
 
         if (this.settings.tafsirPlacement === 'top' || this.settings.tafsirPlacement === 'both') {
             const topTafsirBtn = document.createElement('button');
@@ -1150,6 +1301,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             controlBar.appendChild(topTafsirBtn);
         }
 
+        controlsContainer.appendChild(addPopover);
         controlsContainer.appendChild(settingsPopover);
 
         if (!audioEnabled) {
@@ -2191,6 +2343,46 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             container.dataset.quranRef = `${surah}:${startVerse}-${endVerse}`;
             container.dataset.quranLabel = customLabel || surahName;
             container.dataset.quranVerses = `${startVerse}–${endVerse}`;
+
+            const nextRefBelow = this.getNextRange(surah, startVerse, endVerse, 'below');
+            const footer = container.createDiv({ cls: 'quran-block-footer' });
+
+            const footerContinueBtn = footer.createEl('button', { cls: 'quran-footer-icon-btn' });
+            footerContinueBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>';
+            footerContinueBtn.title = `Continue with ${nextRefBelow}`;
+            footerContinueBtn.onclick = async (e) => {
+                e.stopPropagation();
+                await this.insertQuranBlock(container, 'below');
+            };
+
+            const footerNewBtn = footer.createEl('button', { cls: 'quran-footer-icon-btn' });
+            footerNewBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+            footerNewBtn.title = 'New block (1:1)';
+            footerNewBtn.onclick = async (e) => {
+                e.stopPropagation();
+                await this.insertQuranBlock(container, 'below', '1:1');
+            };
+
+            const footerDeleteBtn = footer.createEl('button', { cls: 'quran-footer-icon-btn quran-footer-delete-btn' });
+            footerDeleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+            footerDeleteBtn.title = 'Delete block';
+            let footerDeleteTimer = null;
+            footerDeleteBtn.onclick = async (e) => {
+                e.stopPropagation();
+                if (footerDeleteBtn.classList.contains('quran-confirm-delete')) {
+                    clearTimeout(footerDeleteTimer);
+                    footerDeleteBtn.classList.remove('quran-confirm-delete');
+                    await this.deleteQuranBlock(container);
+                } else {
+                    footerDeleteBtn.classList.add('quran-confirm-delete');
+                    footerDeleteBtn.title = 'Click again to confirm delete';
+                    footerDeleteTimer = setTimeout(() => {
+                        footerDeleteBtn.classList.remove('quran-confirm-delete');
+                        footerDeleteBtn.title = 'Delete block';
+                    }, 3500);
+                }
+            };
+
             clearTimeout(this._indexBuildTimer);
             this._indexBuildTimer = setTimeout(() => this.buildIndexFromFile(), 600);
         } else {
@@ -2839,25 +3031,26 @@ module.exports = class QuranTajweedPlugin extends Plugin {
     }
 
     getBlockLineRange(container, lines) {
-        const st = container._quranState;
-        if (!st || !st.ctx) return null;
+        const st = container._quranState || {};
 
         try {
-            const el = st.el || container.parentElement || container;
-            const info = st.ctx.getSectionInfo(el) || st.ctx.getSectionInfo(container);
-            if (info && typeof info.lineStart === 'number') {
-                for (let offset = 0; offset <= 3; offset++) {
-                    const checkLines = [info.lineStart - offset, info.lineStart + offset];
-                    for (const ln of checkLines) {
-                        if (ln >= 0 && ln < lines.length && lines[ln].trim().startsWith('```quran')) {
-                            let end = lines.length;
-                            for (let j = ln + 1; j < lines.length; j++) {
-                                if (lines[j].trim() === '```') {
-                                    end = j;
-                                    break;
+            if (st.ctx) {
+                const el = st.el || container.parentElement || container;
+                const info = st.ctx.getSectionInfo(el) || st.ctx.getSectionInfo(container);
+                if (info && typeof info.lineStart === 'number') {
+                    for (let offset = 0; offset <= 3; offset++) {
+                        const checkLines = [info.lineStart - offset, info.lineStart + offset];
+                        for (const ln of checkLines) {
+                            if (ln >= 0 && ln < lines.length && lines[ln].trim().startsWith('```quran')) {
+                                let end = lines.length;
+                                for (let j = ln + 1; j < lines.length; j++) {
+                                    if (lines[j].trim() === '```') {
+                                        end = j;
+                                        break;
+                                    }
                                 }
+                                return { start: ln, end };
                             }
-                            return { start: ln, end };
                         }
                     }
                 }
@@ -2871,13 +3064,29 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         for (let i = 0; i < lines.length; i++) {
             if (lines[i].trim().startsWith('```quran')) {
                 let end = lines.length;
+                let blockRef = null;
                 for (let j = i + 1; j < lines.length; j++) {
                     if (lines[j].trim() === '```') {
                         end = j;
                         break;
                     }
+                    const m = lines[j].trim().match(/^(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?$/);
+                    if (m) blockRef = m[0];
                 }
-                blockRanges.push({ start: i, end });
+                blockRanges.push({ start: i, end, ref: blockRef });
+            }
+        }
+
+        const targetRef = container.dataset.quranRef;
+        if (targetRef && blockRanges.length > 0) {
+            const parsedTarget = this.extractVerseReference(targetRef);
+            if (parsedTarget) {
+                const matches = blockRanges.filter(b => {
+                    if (!b.ref) return false;
+                    const pb = this.extractVerseReference(b.ref);
+                    return pb && pb.surah === parsedTarget.surah && pb.startVerse === parsedTarget.startVerse;
+                });
+                if (matches.length === 1) return matches[0];
             }
         }
 
@@ -2885,12 +3094,169 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             return blockRanges[containerIndex];
         }
 
-        return null;
+        return blockRanges[0] || null;
+    }
+
+    getFileForContainer(container) {
+        const st = container._quranState;
+        if (st && st.ctx && st.ctx.sourcePath) {
+            const file = this.app.vault.getAbstractFileByPath(st.ctx.sourcePath);
+            if (file) return file;
+        }
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        return view ? view.file : null;
+    }
+
+    getNextRange(surah, startVerse, endVerse, position = 'below') {
+        const span = Math.max(1, endVerse - startVerse + 1);
+        const currentSurah = SURAHS.find(s => s.number === surah) || { ayahs: 7 };
+        const totalAyahs = currentSurah.ayahs || 7;
+
+        if (position === 'below') {
+            if (endVerse < totalAyahs) {
+                const nextStart = endVerse + 1;
+                const nextEnd = Math.min(totalAyahs, nextStart + span - 1);
+                return `${surah}:${nextStart}${nextStart === nextEnd ? '' : `-${nextEnd}`}`;
+            } else if (surah < 114) {
+                const nextSurah = surah + 1;
+                const nextSurahTotal = SURAHS.find(s => s.number === nextSurah)?.ayahs || 7;
+                const nextEnd = Math.min(nextSurahTotal, span);
+                return `${nextSurah}:1${nextEnd > 1 ? `-${nextEnd}` : ''}`;
+            }
+            return `${surah}:1${span > 1 ? `-${span}` : ''}`;
+        } else {
+            if (startVerse > 1) {
+                const prevEnd = startVerse - 1;
+                const prevStart = Math.max(1, prevEnd - span + 1);
+                return `${surah}:${prevStart}${prevStart === prevEnd ? '' : `-${prevEnd}`}`;
+            } else if (surah > 1) {
+                const prevSurah = surah - 1;
+                const prevSurahTotal = SURAHS.find(s => s.number === prevSurah)?.ayahs || 7;
+                const prevStart = Math.max(1, prevSurahTotal - span + 1);
+                return `${prevSurah}:${prevStart}${prevStart === prevSurahTotal ? '' : `-${prevSurahTotal}`}`;
+            }
+            return `${surah}:1${span > 1 ? `-${span}` : ''}`;
+        }
+    }
+
+    async insertQuranBlock(container, position = 'below', customRef = null) {
+        const file = this.getFileForContainer(container);
+        if (!file) {
+            new Notice('Unable to locate note file');
+            return;
+        }
+
+        let content;
+        try {
+            content = await this.app.vault.read(file);
+        } catch (e) {
+            new Notice('Failed to read note file');
+            return;
+        }
+
+        const lines = content.split('\n');
+        const range = this.getBlockLineRange(container, lines);
+        if (!range) {
+            new Notice('Unable to locate Quran block position');
+            return;
+        }
+
+        const st = container._quranState || {};
+        const surah = st.surah || 1;
+        const startVerse = st.startVerse || 1;
+        const endVerse = st.endVerse || 1;
+        const nextRef = customRef || this.getNextRange(surah, startVerse, endVerse, position);
+
+        const blockParams = [];
+        const verseRegex = /^\s*(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?\s*$/;
+        for (let j = range.start + 1; j < range.end; j++) {
+            const trimmed = lines[j].trim();
+            if (!verseRegex.test(trimmed) && trimmed.length > 0) {
+                blockParams.push(lines[j]);
+            }
+        }
+
+        if (blockParams.length === 0) {
+            if (st.audioEnabled !== undefined) blockParams.push(`audio="${st.audioEnabled ? 'on' : 'off'}"`);
+            if (st.translationEnabled !== undefined) blockParams.push(`translation="${st.translationEnabled ? 'on' : 'off'}"`);
+            if (st.transliterationEnabled !== undefined) blockParams.push(`transliteration="${st.transliterationEnabled ? 'on' : 'off'}"`);
+            if (st.reciter && st.reciter !== DEFAULT_RECITER) blockParams.push(`reciter="${st.reciter}"`);
+        }
+
+        const newBlock = [
+            '```quran',
+            ...blockParams,
+            nextRef,
+            '```'
+        ];
+
+        if (position === 'below') {
+            lines.splice(range.end + 1, 0, '', ...newBlock);
+        } else {
+            lines.splice(range.start, 0, ...newBlock, '');
+        }
+
+        await this.app.vault.modify(file, lines.join('\n'));
+        new Notice(`Added Quran block: ${nextRef}`);
+        this.refreshQuranIndex();
+
+        const parsed = this.extractVerseReference(nextRef);
+        const expectedRef = parsed ? `${parsed.surah}:${parsed.startVerse}-${parsed.endVerse}` : nextRef;
+
+        setTimeout(() => {
+            const targetContainer = Array.from(document.querySelectorAll('.quran-tajweed-container')).find(c => c.dataset.quranRef === expectedRef || c.dataset.quranRef === nextRef);
+            if (targetContainer) {
+                const scrollEl = targetContainer.closest('.markdown-preview-view, .cm-scroller') || targetContainer.parentElement;
+                if (scrollEl && typeof scrollEl.scrollTo === 'function') {
+                    const top = targetContainer.offsetTop - (scrollEl.offsetTop || 0) - 40;
+                    scrollEl.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                }
+                targetContainer.classList.add('quran-block-flash');
+                setTimeout(() => targetContainer.classList.remove('quran-block-flash'), 1500);
+            }
+        }, 300);
+    }
+
+    async deleteQuranBlock(container) {
+        const file = this.getFileForContainer(container);
+        if (!file) {
+            new Notice('Unable to locate note file');
+            return;
+        }
+
+        let content;
+        try {
+            content = await this.app.vault.read(file);
+        } catch (e) {
+            new Notice('Failed to read note file');
+            return;
+        }
+
+        const lines = content.split('\n');
+        const range = this.getBlockLineRange(container, lines);
+        if (!range) {
+            new Notice('Unable to locate Quran block to delete');
+            return;
+        }
+
+        let delStart = range.start;
+        let delCount = range.end - range.start + 1;
+        if (lines[range.end + 1] !== undefined && lines[range.end + 1].trim() === '') {
+            delCount++;
+        } else if (delStart > 0 && lines[delStart - 1].trim() === '') {
+            delStart--;
+            delCount++;
+        }
+
+        lines.splice(delStart, delCount);
+        container.remove();
+        await this.app.vault.modify(file, lines.join('\n'));
+        new Notice('Deleted Quran block');
+        this.refreshQuranIndex();
     }
 
     async updateSourceParam(container, key, newVal) {
         const st = container._quranState;
-        if (!st || !st.ctx || !st.ctx.sourcePath) return;
         const paramMap = {
             translationEnabled: 'translation',
             transliterationEnabled: 'transliteration',
@@ -2900,7 +3266,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         if (!paramName) return;
         const paramValue = newVal ? 'on' : 'off';
 
-        const file = this.app.vault.getAbstractFileByPath(st.ctx.sourcePath);
+        const file = this.getFileForContainer(container);
         if (!file) return;
         let content;
         try {
@@ -2927,8 +3293,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
     async updateSourceRange(container, newRef) {
         const st = container._quranState;
-        if (!st || !st.ctx || !st.ctx.sourcePath) return;
-        const file = this.app.vault.getAbstractFileByPath(st.ctx.sourcePath);
+        const file = this.getFileForContainer(container);
         if (!file) return;
         let content;
         try {
@@ -2949,7 +3314,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 }
                 await this.app.vault.modify(file, lines.join('\n'));
                 const parsed = this.extractVerseReference(newRef);
-                if (parsed) {
+                if (parsed && st) {
                     st.surah = parsed.surah;
                     st.startVerse = parsed.startVerse;
                     st.endVerse = parsed.endVerse;
