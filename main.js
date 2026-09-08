@@ -156,8 +156,9 @@ const TRANSLATION_VERSIONS = [
 const DEFAULT_RECITER = 'ar.alafasy';
 
 const TAFSIR_VERSIONS = [
-    { id: 'en-tafisr-ibn-kathir', name: 'Ibn Kathir (Abridged)', apiName: 'Ibn Kathir' },
-    { id: 'en-tafsir-maarif-ul-quran', name: "Ma'arif al-Qur'an", apiName: "Ma'arif al-Qur'an" },
+    { id: 'en-tafisr-ibn-kathir', name: 'Ibn Kathir (Abridged)', apiName: 'Ibn Kathir', qdcId: 169 },
+    { id: 'en-tafsir-maarif-ul-quran', name: "Ma'arif al-Qur'an", apiName: "Ma'arif al-Qur'an", qdcId: 168 },
+    { id: 'tazkirul-quran-en', name: 'Tazkirul Quran (Wahiduddin Khan)', apiName: 'Tazkirul Quran', qdcId: 817 },
 ];
 
 // Available reciters with audio (using Quran.com CDN)
@@ -200,6 +201,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             translationVersion: 'en.sahih',
             tafsirVersion: 'en-tafisr-ibn-kathir',
             tafsirPlacement: 'inline',
+            thematicTafsirOnly: true,
             experimentalV4Tajweed: false,
             wbwEnabled: true,
             wbwTrigger: 'hover',
@@ -389,6 +391,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.settings.translationVersion = saved.translationVersion !== undefined ? saved.translationVersion : 'en.sahih';
             this.settings.tafsirVersion = saved.tafsirVersion !== undefined ? saved.tafsirVersion : 'en-tafisr-ibn-kathir';
             this.settings.tafsirPlacement = saved.tafsirPlacement || 'inline';
+            this.settings.thematicTafsirOnly = saved.thematicTafsirOnly !== undefined ? saved.thematicTafsirOnly : true;
             this.settings.experimentalV4Tajweed = saved.experimentalV4Tajweed !== undefined ? saved.experimentalV4Tajweed : false;
             this.settings.wbwEnabled = saved.wbwEnabled !== undefined ? saved.wbwEnabled : true;
             this.settings.wbwTrigger = saved.wbwTrigger || 'hover';
@@ -417,6 +420,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             translationVersion: this.settings.translationVersion,
             tafsirVersion: this.settings.tafsirVersion,
             tafsirPlacement: this.settings.tafsirPlacement,
+            thematicTafsirOnly: this.settings.thematicTafsirOnly,
             experimentalV4Tajweed: this.settings.experimentalV4Tajweed,
             wbwEnabled: this.settings.wbwEnabled,
             wbwTrigger: this.settings.wbwTrigger,
@@ -1407,7 +1411,71 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         return fetch(url).then(r => r.json());
     }
 
-    showTafsir(event, surah, verse) {
+    async getSurahTafsir(surah, tafsirInfo = null) {
+        if (!this._tafsirCache) this._tafsirCache = {};
+        const info = tafsirInfo || TAFSIR_VERSIONS.find(t => t.id === this.settings.tafsirVersion) || TAFSIR_VERSIONS[0];
+        const cacheKey = `quran-tafsir-${surah}-${info.id}`;
+
+        if (this._tafsirCache[cacheKey]) {
+            return this._tafsirCache[cacheKey];
+        }
+
+        const cached = await this.getDiskCache(cacheKey);
+        if (cached && Object.keys(cached).length > 0) {
+            this._tafsirCache[cacheKey] = cached;
+            return cached;
+        }
+
+        if (!this._inFlightTafsirRequests) this._inFlightTafsirRequests = {};
+        if (this._inFlightTafsirRequests[cacheKey]) {
+            return await this._inFlightTafsirRequests[cacheKey];
+        }
+
+        const task = (async () => {
+            try {
+                const qdcId = info.qdcId || 169;
+                const url = `https://api.qurancdn.com/api/qdc/tafsirs/${qdcId}/by_chapter/${surah}?per_page=300`;
+                const data = await this.fetchJson(url);
+                const tafsirs = data?.tafsirs || [];
+                if (tafsirs.length > 0) {
+                    const anchors = [];
+                    tafsirs.forEach((t, i) => {
+                        if (t.text && t.text.trim().length > 0) {
+                            anchors.push({ verse: i + 1, text: t.text });
+                        }
+                    });
+                    const map = {};
+                    const total = tafsirs.length;
+                    for (let idx = 0; idx < anchors.length; idx++) {
+                        const cur = anchors[idx];
+                        const next = anchors[idx + 1];
+                        const start = cur.verse;
+                        const end = next ? next.verse - 1 : total;
+                        const rangeLabel = start === end ? 'Tafsir' : `Tafsir (${start}–${end})`;
+                        map[start] = { hasTafsir: true, anchorVerse: start, startVerse: start, endVerse: end, rangeLabel, text: cur.text };
+                        for (let v = start + 1; v <= end; v++) {
+                            map[v] = { hasTafsir: false, anchorVerse: start, startVerse: start, endVerse: end, rangeLabel };
+                        }
+                    }
+                    if (Object.keys(map).length > 0) {
+                        await this.setDiskCache(cacheKey, map);
+                        this._tafsirCache[cacheKey] = map;
+                        return map;
+                    }
+                }
+            } catch {}
+            return null;
+        })();
+
+        this._inFlightTafsirRequests[cacheKey] = task;
+        try {
+            return await task;
+        } finally {
+            delete this._inFlightTafsirRequests[cacheKey];
+        }
+    }
+
+    async showTafsir(event, surah, verse) {
         const existing = document.querySelector('.quran-tafsir-popover');
         if (existing) existing.remove();
 
@@ -1416,6 +1484,38 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         popover.className = 'quran-tafsir-popover';
         popover.innerHTML = '<div class="quran-tafsir-loading">Loading tafsir...</div>';
         document.body.appendChild(popover);
+
+        const setupClose = () => {
+            const closeHandler = (e) => {
+                if (!popover.contains(e.target) && e.target !== event?.currentTarget) {
+                    popover.remove();
+                    document.removeEventListener('click', closeHandler, true);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+        };
+
+        try {
+            const tafsirMap = await this.getSurahTafsir(surah, tafsirInfo);
+            let entry = tafsirMap ? tafsirMap[verse] : null;
+            if (entry && !entry.hasTafsir && entry.anchorVerse) {
+                entry = tafsirMap[entry.anchorVerse];
+            }
+
+            if (entry && entry.text) {
+                const rangeStr = entry.startVerse === entry.endVerse ? `${surah}:${entry.startVerse}` : `${surah}:${entry.startVerse}–${entry.endVerse}`;
+                popover.innerHTML = `
+                    <div class="quran-tafsir-header">
+                        <span class="quran-tafsir-title">${tafsirInfo.apiName} (${rangeStr})</span>
+                        <button class="quran-tafsir-close">&times;</button>
+                    </div>
+                    <div class="quran-tafsir-body">${entry.text}</div>
+                `;
+                popover.querySelector('.quran-tafsir-close').addEventListener('click', () => popover.remove());
+                setupClose();
+                return;
+            }
+        } catch {}
 
         this.fetchJson(`https://api.islamic.app/v1/verses/by_key/${surah}:${verse}?tafsirs=${tafsirInfo.id}`)
             .then(data => {
@@ -1433,13 +1533,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 popover.innerHTML = '<div class="quran-tafsir-error">Failed to load tafsir. Check your connection.</div>';
             });
 
-        const closeHandler = (e) => {
-            if (!popover.contains(e.target) && e.target !== event.currentTarget) {
-                popover.remove();
-                document.removeEventListener('click', closeHandler, true);
-            }
-        };
-        setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+        setupClose();
     }
 
     getCache(key) {
@@ -1496,6 +1590,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         keys.forEach(k => localStorage.removeItem(k));
         this._memCache = {};
         this._wbwCache = {};
+        this._tafsirCache = {};
         this._v4PageFontsLoaded = new Set();
         let diskFilesCount = 0;
         try {
@@ -1907,6 +2002,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 await Promise.all([...allPages].map(p => this.ensureQulV4FontLoaded(p).catch(() => {})));
             }
 
+            let tafsirMap = null;
+            if (this.settings.tafsirPlacement === 'inline' || this.settings.tafsirPlacement === 'both') {
+                tafsirMap = await this.getSurahTafsir(surah).catch(() => null);
+            }
+
             for (let i = 0; i < arabicVerses.length; i++) {
                 const verse = arabicVerses[i];
                 const verseDiv = container.createDiv({ cls: 'quran-verse' });
@@ -1946,13 +2046,20 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 }
 
                 if (this.settings.tafsirPlacement === 'inline' || this.settings.tafsirPlacement === 'both') {
-                    const actionsDiv = verseDiv.createDiv({ cls: 'quran-verse-actions' });
-                    const tafsirBtn = actionsDiv.createEl('button', { cls: 'quran-action-btn quran-tafsir-btn' });
-                    tafsirBtn.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg><span>Tafsir</span>`;
-                    tafsirBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.showTafsir(e, surah, verse.numberInSurah);
-                    });
+                    const ayahNum = verse.numberInSurah;
+                    const tafsirEntry = tafsirMap ? tafsirMap[ayahNum] : null;
+                    const shouldShowTafsir = !this.settings.thematicTafsirOnly || !tafsirMap || (tafsirEntry && tafsirEntry.hasTafsir);
+                    if (shouldShowTafsir) {
+                        const actionsDiv = verseDiv.createDiv({ cls: 'quran-verse-actions' });
+                        const tafsirBtn = actionsDiv.createEl('button', { cls: 'quran-action-btn quran-tafsir-btn' });
+                        const btnLabel = tafsirEntry?.rangeLabel || 'Tafsir';
+                        tafsirBtn.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg><span>${btnLabel}</span>`;
+                        tafsirBtn.title = tafsirEntry ? `View Tafsir for verses ${tafsirEntry.startVerse}–${tafsirEntry.endVerse}` : 'View Tafsir';
+                        tafsirBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.showTafsir(e, surah, ayahNum);
+                        });
+                    }
                 }
 
                 let audioPlayer = null;
@@ -3052,6 +3159,18 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                 dropdown.setValue(this.plugin.settings.tafsirPlacement || 'inline');
                 dropdown.onChange(async (value) => {
                     this.plugin.settings.tafsirPlacement = value;
+                    await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
+                });
+            });
+
+        new Setting(containerEl)
+            .setName('Thematic Tafsir Grouping')
+            .setDesc('Only show inline Tafsir buttons on verses that begin a thematic commentary section (e.g. 1–13) and hide redundant buttons on intermediate verses.')
+            .addToggle((toggle) => {
+                toggle.setValue(this.plugin.settings.thematicTafsirOnly !== false);
+                toggle.onChange(async (value) => {
+                    this.plugin.settings.thematicTafsirOnly = value;
                     await this.plugin.saveSettings();
                     await this.plugin.rerenderAll();
                 });
