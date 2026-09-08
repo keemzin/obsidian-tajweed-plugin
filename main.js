@@ -1624,6 +1624,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         if (existing?._docListeners) {
             existing._docListeners.forEach(({ type, fn }) => document.removeEventListener(type, fn));
         }
+        if (existing?._winListeners) {
+            existing._winListeners.forEach(({ type, fn }) => window.removeEventListener(type, fn));
+        }
 
         if (blocks.length < 1) {
             if (existing) existing.remove();
@@ -1662,6 +1665,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         index._activeIdx = 0;
         index._scrollListeners = [];
         index._docListeners = [];
+        index._winListeners = [];
         index.innerHTML = '';
 
         const itemHeight = 42;
@@ -1798,6 +1802,14 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         wheelScroll.className = 'quran-wheel-scroll';
         wheelScroll.style.padding = `${padY}px 0`;
 
+        let isPointerDown = false;
+        let pointerStartY = 0;
+        let pointerStartScroll = 0;
+        let pointerDidMove = false;
+        let isWheelUserScrolling = false;
+        let wheelScrollTimer = null;
+        let rAF = null;
+
         const itemElements = [];
         blocks.forEach((b, idx) => {
             const item = document.createElement('div');
@@ -1824,6 +1836,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (pointerDidMove) return;
                 selectIndex(idx, true);
             });
 
@@ -1962,9 +1975,35 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             }
         };
 
-        let isWheelUserScrolling = false;
-        let wheelScrollTimer = null;
-        let rAF = null;
+        const scheduleSnapAndNavigate = () => {
+            if (isPointerDown) return;
+            clearTimeout(wheelGestureTimer);
+            isWheelUserScrolling = false;
+            const snappedIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
+            const targetScroll = snappedIdx * itemHeight;
+            if (Math.abs(wheelScroll.scrollTop - targetScroll) > 1) {
+                wheelScroll.scrollTo({ top: targetScroll, behavior: 'smooth' });
+            }
+            index._activeIdx = snappedIdx;
+            updateWheelVisuals(snappedIdx);
+            navigateToBlock(blocks[snappedIdx], snappedIdx);
+        };
+
+        const waitForScrollToStop = (callback) => {
+            let stopTimer = null;
+            let checkListener = null;
+            const done = () => {
+                clearTimeout(stopTimer);
+                if (checkListener) wheelScroll.removeEventListener('scroll', checkListener);
+                callback();
+            };
+            checkListener = () => {
+                clearTimeout(stopTimer);
+                stopTimer = setTimeout(done, 120);
+            };
+            wheelScroll.addEventListener('scroll', checkListener, { passive: true });
+            stopTimer = setTimeout(done, 120);
+        };
 
         wheelScroll.addEventListener('scroll', () => {
             if (rAF) cancelAnimationFrame(rAF);
@@ -1972,48 +2011,56 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 const currentIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
                 updateWheelVisuals(currentIdx);
             });
-
-            isWheelUserScrolling = true;
-            clearTimeout(wheelScrollTimer);
-            wheelScrollTimer = setTimeout(() => {
-                isWheelUserScrolling = false;
-                const snappedIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
-                if (snappedIdx !== index._activeIdx) {
-                    index._activeIdx = snappedIdx;
-                    updateWheelVisuals(snappedIdx);
-                    navigateToBlock(blocks[snappedIdx], snappedIdx);
-                }
-            }, 180);
         }, { passive: true });
 
-        let isWheelDragging = false;
-        let wheelDragStartY = 0;
-        let wheelDragStartScroll = 0;
+        let wheelGestureTimer = null;
+        wheelScroll.addEventListener('wheel', () => {
+            isWheelUserScrolling = true;
+            clearTimeout(wheelGestureTimer);
+            wheelGestureTimer = setTimeout(() => {
+                isWheelUserScrolling = false;
+                scheduleSnapAndNavigate();
+            }, 400);
+        }, { passive: true });
 
         wheelScroll.addEventListener('pointerdown', (e) => {
-            if (e.target.closest('.quran-wheel-item')) return;
-            isWheelDragging = true;
-            wheelDragStartY = e.clientY;
-            wheelDragStartScroll = wheelScroll.scrollTop;
-            wheelScroll.setPointerCapture(e.pointerId);
+            isPointerDown = true;
+            pointerDidMove = false;
+            pointerStartY = e.clientY;
+            pointerStartScroll = wheelScroll.scrollTop;
+            clearTimeout(wheelGestureTimer);
             wheelScroll.classList.add('quran-wheel-grabbing');
         });
 
-        wheelScroll.addEventListener('pointermove', (e) => {
-            if (!isWheelDragging) return;
-            const deltaY = e.clientY - wheelDragStartY;
-            wheelScroll.scrollTop = wheelDragStartScroll - deltaY;
-        });
-
-        const finishWheelDrag = () => {
-            if (!isWheelDragging) return;
-            isWheelDragging = false;
-            wheelScroll.classList.remove('quran-wheel-grabbing');
-            const targetIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
-            selectIndex(targetIdx, true);
+        const onWheelPointerMove = (e) => {
+            if (!isPointerDown) return;
+            const deltaY = e.clientY - pointerStartY;
+            if (Math.abs(deltaY) > 4) {
+                pointerDidMove = true;
+            }
+            if (e.pointerType === 'mouse' && e.buttons === 1) {
+                wheelScroll.scrollTop = pointerStartScroll - deltaY;
+            }
         };
-        wheelScroll.addEventListener('pointerup', finishWheelDrag);
-        wheelScroll.addEventListener('pointercancel', finishWheelDrag);
+
+        const finishPointer = () => {
+            if (!isPointerDown) return;
+            isPointerDown = false;
+            wheelScroll.classList.remove('quran-wheel-grabbing');
+            if (pointerDidMove) {
+                waitForScrollToStop(() => {
+                    scheduleSnapAndNavigate();
+                });
+                setTimeout(() => { pointerDidMove = false; }, 100);
+            }
+        };
+
+        window.addEventListener('pointermove', onWheelPointerMove);
+        window.addEventListener('pointerup', finishPointer);
+        window.addEventListener('pointercancel', finishPointer);
+        index._winListeners.push({ type: 'pointermove', fn: onWheelPointerMove });
+        index._winListeners.push({ type: 'pointerup', fn: finishPointer });
+        index._winListeners.push({ type: 'pointercancel', fn: finishPointer });
 
         const onDocClick = (e) => {
             if (!index.contains(e.target)) {
@@ -2051,7 +2098,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         };
 
         const onNoteScroll = () => {
-            if (index._scrollLocked || isWheelUserScrolling || isWheelDragging) return;
+            if (index._scrollLocked || isWheelUserScrolling || isPointerDown) return;
             const idx = findActiveIdx();
             if (idx !== index._activeIdx) {
                 index._activeIdx = idx;
