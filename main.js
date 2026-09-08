@@ -105,7 +105,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         this._qpcV4Data = null;
         try {
             const adapter = this.app.vault.adapter;
-            const pluginDir = this.manifest.dir;
+            const pluginDir = this.getPluginDir();
             const raw = await adapter.read(`${pluginDir}/data/qpc-v4.json`);
             this._qpcV4Data = JSON.parse(raw);
         } catch (e) {
@@ -311,43 +311,124 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         });
     }
 
-    ensureQulV4FontLoaded(page) {
+    getPluginDir() {
+        return this.manifest.dir || (this.app?.vault?.configDir ? `${this.app.vault.configDir}/plugins/${this.manifest.id}` : `.obsidian/plugins/${this.manifest.id}`);
+    }
+
+    async ensureQulV4FontLoaded(page) {
+        page = parseInt(page);
+        if (!page) return false;
         if (!this._v4PageFontsLoaded) this._v4PageFontsLoaded = new Set();
-        if (this._v4PageFontsLoaded.has(page)) return Promise.resolve();
-        this._v4PageFontsLoaded.add(page);
+        if (this._v4PageFontsLoaded.has(page)) return true;
+
         const family = `qul-v4-p${page}`;
-        const url = `https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/ttf/p${page}.ttf`;
-        const style = document.createElement('style');
-        style.textContent = `@font-face{font-family:'${family}';src:url('${url}') format('truetype');font-display:block}`;
-        document.head.appendChild(style);
-        return document.fonts.load(`1em '${family}'`).catch(() => {});
+        const remoteUrl = `https://static-cdn.tarteel.ai/qul/fonts/quran_fonts/v4-tajweed/ttf/p${page}.ttf`;
+
+        if (!this._inFlightFontRequests) this._inFlightFontRequests = {};
+        if (this._inFlightFontRequests[page]) {
+            return await this._inFlightFontRequests[page];
+        }
+
+        const task = (async () => {
+            const pluginDir = this.getPluginDir();
+            const adapter = this.app.vault.adapter;
+            const fontRelPath = `${pluginDir}/cache/fonts/p${page}.ttf`;
+            let buffer = null;
+
+            try {
+                if (await adapter.exists(fontRelPath)) {
+                    buffer = await adapter.readBinary(fontRelPath);
+                }
+            } catch {}
+
+            if (!buffer) {
+                try {
+                    const res = await fetch(remoteUrl);
+                    if (res.ok) {
+                        buffer = await res.arrayBuffer();
+                        try {
+                            const fontsDir = `${pluginDir}/cache/fonts`;
+                            const cacheDir = `${pluginDir}/cache`;
+                            if (!(await adapter.exists(cacheDir))) await adapter.mkdir(cacheDir);
+                            if (!(await adapter.exists(fontsDir))) await adapter.mkdir(fontsDir);
+                            await adapter.writeBinary(fontRelPath, buffer);
+                        } catch {}
+                    }
+                } catch {}
+            }
+
+            if (buffer) {
+                try {
+                    const font = new FontFace(family, buffer);
+                    await font.load();
+                    document.fonts.add(font);
+                    this._v4PageFontsLoaded.add(page);
+                    return true;
+                } catch {}
+            }
+
+            try {
+                const font = new FontFace(family, `url('${remoteUrl}')`);
+                await font.load();
+                document.fonts.add(font);
+                this._v4PageFontsLoaded.add(page);
+                return true;
+            } catch {}
+
+            try {
+                const style = document.createElement('style');
+                style.textContent = `@font-face{font-family:'${family}';src:url('${remoteUrl}') format('truetype');font-display:block}`;
+                document.head.appendChild(style);
+                await document.fonts.load(`1em '${family}'`).catch(() => {});
+                this._v4PageFontsLoaded.add(page);
+                return true;
+            } catch {}
+
+            return false;
+        })();
+
+        this._inFlightFontRequests[page] = task;
+        try {
+            return await task;
+        } finally {
+            delete this._inFlightFontRequests[page];
+        }
     }
 
     renderQulV4Verse(textSpan, surah, verse, pageMap) {
         const ayah = verse.numberInSurah;
         let w = 1;
         let rendered = 0;
+        const wordNodes = [];
+
         while (true) {
             const key = `${surah}:${ayah}:${w}`;
             const glyphEntry = this._qpcV4Data[key];
             if (!glyphEntry) break;
-            const page = pageMap[`${ayah}:${w}`];
+            const page = parseInt(pageMap[`${ayah}:${w}`]);
             if (!page) { w++; continue; }
+
+            if (!this._v4PageFontsLoaded?.has(page)) {
+                return false;
+            }
 
             const tajweedClass = this.getTajweedClassForWord(verse.text, w);
             const wordSpan = document.createElement('span');
+            if (tajweedClass) wordSpan.className = tajweedClass;
             wordSpan.style.fontFamily = `'qul-v4-p${page}', serif`;
             wordSpan.style.unicodeBidi = 'bidi-override';
             wordSpan.textContent = glyphEntry.text;
-            if (tajweedClass) {
-                wordSpan.className = tajweedClass;
-            }
-            textSpan.appendChild(wordSpan);
-            textSpan.appendChild(document.createTextNode(' '));
+            wordNodes.push(wordSpan);
+            wordNodes.push(document.createTextNode(' '));
             w++;
             rendered++;
         }
-        return rendered > 0;
+
+        if (rendered > 0) {
+            wordNodes.forEach(node => textSpan.appendChild(node));
+            return true;
+        }
+        return false;
     }
 
     getTajweedClassForWord(verseText, wordPos) {
@@ -997,8 +1078,215 @@ module.exports = class QuranTajweedPlugin extends Plugin {
     setCache(key, data) {
         try {
             localStorage.setItem(key, JSON.stringify(data));
+        } catch {}
+    }
+
+    async getDiskCache(key) {
+        if (this._memCache && this._memCache[key]) {
+            return this._memCache[key];
+        }
+        try {
+            const adapter = this.app.vault.adapter;
+            const pluginDir = this.getPluginDir();
+            const path = `${pluginDir}/cache/${key}.json`;
+            if (await adapter.exists(path)) {
+                const raw = await adapter.read(path);
+                const data = JSON.parse(raw);
+                if (this._memCache) this._memCache[key] = data;
+                return data;
+            }
+        } catch {}
+        return this.getCache(key);
+    }
+
+    async setDiskCache(key, data) {
+        if (!this._memCache) this._memCache = {};
+        this._memCache[key] = data;
+        try {
+            const adapter = this.app.vault.adapter;
+            const pluginDir = this.getPluginDir();
+            const dir = `${pluginDir}/cache`;
+            if (!(await adapter.exists(dir))) {
+                await adapter.mkdir(dir);
+            }
+            await adapter.write(`${dir}/${key}.json`, JSON.stringify(data));
         } catch {
-            // localStorage full or unavailable — ignore
+            this.setCache(key, data);
+        }
+    }
+
+    async getBundledTajweedSurah(surahNumber) {
+        if (!this._bundledTajweed) {
+            try {
+                const adapter = this.app.vault.adapter;
+                const pluginDir = this.getPluginDir();
+                const path = `${pluginDir}/data/quran-tajweed.json`;
+                if (await adapter.exists(path)) {
+                    const raw = await adapter.read(path);
+                    this._bundledTajweed = JSON.parse(raw);
+                }
+            } catch {}
+        }
+        if (this._bundledTajweed?.data?.surahs) {
+            const s = this._bundledTajweed.data.surahs.find(x => x.number === surahNumber);
+            if (s) {
+                return {
+                    arabicData: {
+                        data: {
+                            ayahs: s.ayahs
+                        }
+                    },
+                    transliterationFetchData: null
+                };
+            }
+        }
+        return null;
+    }
+
+    async getBundledTranslationSurah(surahNumber) {
+        if (!this._bundledSahihTrans) {
+            try {
+                const adapter = this.app.vault.adapter;
+                const pluginDir = this.getPluginDir();
+                const path = `${pluginDir}/data/translation-en-sahih.json`;
+                if (await adapter.exists(path)) {
+                    const raw = await adapter.read(path);
+                    this._bundledSahihTrans = JSON.parse(raw);
+                }
+            } catch {}
+        }
+        if (this._bundledSahihTrans?.data?.surahs) {
+            const s = this._bundledSahihTrans.data.surahs.find(x => x.number === surahNumber);
+            if (s) {
+                return {
+                    translationData: {
+                        data: {
+                            ayahs: s.ayahs
+                        }
+                    }
+                };
+            }
+        }
+        return null;
+    }
+
+    async ensureSurahData(surah, transInfo) {
+        if (!this._inFlightRequests) this._inFlightRequests = {};
+        const flightKey = `surah-${surah}-${transInfo.source}-${transInfo.id}`;
+        if (this._inFlightRequests[flightKey]) {
+            return await this._inFlightRequests[flightKey];
+        }
+
+        const task = (async () => {
+            if (this.settings.experimentalV4Tajweed && !this._qpcV4Data) {
+                try {
+                    const adapter = this.app.vault.adapter;
+                    const pluginDir = this.getPluginDir();
+                    const raw = await adapter.read(`${pluginDir}/data/qpc-v4.json`);
+                    this._qpcV4Data = JSON.parse(raw);
+                } catch {}
+            }
+
+            const arabicCacheKey = `quran-surah-${surah}`;
+            const pageMapCacheKey = `quran-surah-${surah}-page-map`;
+            const transCacheKey = `quran-surah-${surah}-trans-${transInfo.source}-${transInfo.id}`;
+
+            let arabicCached = await this.getDiskCache(arabicCacheKey);
+            if (!arabicCached || !arabicCached.transliterationFetchData) {
+                try {
+                    const fetches = [
+                        !arabicCached ? this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/quran-tajweed`) : Promise.resolve(arabicCached.arabicData),
+                        this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/en.transliteration`).catch(() => null)
+                    ];
+                    const [arabicData, transliterationFetchData] = await Promise.all(fetches);
+                    if (arabicData) {
+                        arabicCached = {
+                            arabicData,
+                            transliterationFetchData: transliterationFetchData || arabicCached?.transliterationFetchData || null
+                        };
+                        await this.setDiskCache(arabicCacheKey, arabicCached);
+                    }
+                } catch {}
+            }
+
+            if (!arabicCached) {
+                arabicCached = await this.getBundledTajweedSurah(surah);
+                if (arabicCached) {
+                    await this.setDiskCache(arabicCacheKey, arabicCached);
+                }
+            }
+
+            let pageMapCached = null;
+            if (this.settings.experimentalV4Tajweed) {
+                pageMapCached = await this.getDiskCache(pageMapCacheKey);
+                if (!pageMapCached) {
+                    try {
+                        const pageMapData = await this.fetchJson(`https://api.qurancdn.com/api/qdc/verses/by_chapter/${surah}?words=true&word_fields=page_number&per_page=300`);
+                        if (pageMapData?.verses) {
+                            const map = {};
+                            for (const verse of pageMapData.verses) {
+                                for (const word of (verse.words || [])) {
+                                    map[`${verse.verse_number}:${word.position}`] = word.page_number;
+                                }
+                            }
+                            pageMapCached = { map };
+                            await this.setDiskCache(pageMapCacheKey, pageMapCached);
+                        }
+                    } catch {}
+
+                    if (!pageMapCached && arabicCached?.arabicData?.data?.ayahs) {
+                        const map = {};
+                        for (const ayah of arabicCached.arabicData.data.ayahs) {
+                            const a = ayah.numberInSurah;
+                            const pg = ayah.page || 1;
+                            let w = 1;
+                            while (this._qpcV4Data && this._qpcV4Data[`${surah}:${a}:${w}`]) {
+                                map[`${a}:${w}`] = pg;
+                                w++;
+                            }
+                        }
+                        pageMapCached = { map };
+                        await this.setDiskCache(pageMapCacheKey, pageMapCached);
+                    }
+                }
+            }
+
+            let transCached = await this.getDiskCache(transCacheKey);
+            if (!transCached) {
+                if (transInfo.id === 'en.sahih') {
+                    transCached = await this.getBundledTranslationSurah(surah);
+                    if (transCached) {
+                        await this.setDiskCache(transCacheKey, transCached);
+                    }
+                }
+                if (!transCached) {
+                    try {
+                        let data = null;
+                        if (transInfo.source === 'quran-com') {
+                            data = await this.fetchJson(`https://api.quran.com/api/v4/verses/by_chapter/${surah}?translations=${transInfo.apiId}&per_page=300`);
+                        } else if (transInfo.source === 'fawazahmed') {
+                            data = await this.fetchJson(`https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${transInfo.apiId}/${surah}.json`);
+                        } else {
+                            data = await this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/${transInfo.apiId}`);
+                        }
+                        transCached = { translationData: data };
+                    } catch {
+                        transCached = { translationData: null };
+                    }
+                    if (transCached?.translationData) {
+                        await this.setDiskCache(transCacheKey, transCached);
+                    }
+                }
+            }
+
+            return { arabicCached, pageMapCached, transCached };
+        })();
+
+        this._inFlightRequests[flightKey] = task;
+        try {
+            return await task;
+        } finally {
+            delete this._inFlightRequests[flightKey];
         }
     }
 
@@ -1113,103 +1401,35 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
             };
 
-            const arabicCacheKey = `quran-surah-${surah}`;
-            const pageMapCacheKey = `quran-surah-${surah}-page-map`;
             const transInfo = TRANSLATION_VERSIONS.find(t => t.id === this.settings.translationVersion) || TRANSLATION_VERSIONS[0];
-            const transCacheKey = `quran-surah-${surah}-trans-${transInfo.source}-${this.settings.translationVersion}`;
-            let arabicCached = this._memCache[arabicCacheKey] || this.getCache(arabicCacheKey);
-            let pageMapCached = this.settings.experimentalV4Tajweed
-                ? (this._memCache[pageMapCacheKey] || this.getCache(pageMapCacheKey))
-                : null;
-            let transCached = this._memCache[transCacheKey] || this.getCache(transCacheKey);
+            const arabicCacheKey = `quran-surah-${surah}`;
+            const hasCached = (this._memCache && this._memCache[arabicCacheKey]);
 
-            const needsFetch = !arabicCached || (this.settings.experimentalV4Tajweed && !pageMapCached);
-            if (needsFetch) {
-                const loading = container.createDiv({ cls: 'quran-loading' });
+            let loading = null;
+            if (!hasCached) {
+                loading = container.createDiv({ cls: 'quran-loading' });
                 loading.textContent = 'Loading verses...';
-
-                try {
-                    const fetches = [];
-                    fetches.push(arabicCached
-                        ? Promise.resolve(null)
-                        : this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/quran-tajweed`)
-                    );
-                    fetches.push(arabicCached
-                        ? Promise.resolve(null)
-                        : this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/en.transliteration`).catch(() => null)
-                    );
-                    fetches.push((this.settings.experimentalV4Tajweed && !pageMapCached)
-                        ? this.fetchJson(`https://api.qurancdn.com/api/qdc/verses/by_chapter/${surah}?words=true&word_fields=page_number&per_page=300`).catch(() => null)
-                        : Promise.resolve(null)
-                    );
-
-                    const [arabicData, transliterationFetchData, pageMapData] = await Promise.all(fetches);
-
-                    loading.remove();
-                    if (arabicData) {
-                        arabicCached = { arabicData, transliterationFetchData };
-                        this._memCache[arabicCacheKey] = arabicCached;
-                        this.setCache(arabicCacheKey, arabicCached);
-                    }
-                    if (pageMapData) {
-                        const map = {};
-                        for (const verse of (pageMapData.verses || [])) {
-                            for (const word of (verse.words || [])) {
-                                map[`${verse.verse_number}:${word.position}`] = word.page_number;
-                            }
-                        }
-                        pageMapCached = { map };
-                        this._memCache[pageMapCacheKey] = pageMapCached;
-                        this.setCache(pageMapCacheKey, pageMapCached);
-                    }
-                } catch (error) {
-                    console.error('❌ Failed to fetch verses:', error);
-                    loading.remove();
-                    const errorDiv = container.createDiv({ cls: 'quran-error' });
-                    errorDiv.textContent = 'Failed to load verses. Please check your internet connection.';
-                    return;
-                }
             }
 
-            if (!transCached) {
+            const { arabicCached, pageMapCached, transCached } = await this.ensureSurahData(surah, transInfo);
 
-                if (transInfo.source === 'quran-com') {
-                    try {
-                        const data = await this.fetchJson(`https://api.quran.com/api/v4/verses/by_chapter/${surah}?translations=${transInfo.apiId}&per_page=300`);
-                        transCached = { translationData: data };
-                    } catch (e) {
-                        console.warn('⚠️ Translation fetch failed:', e);
-                        transCached = { translationData: null };
-                    }
-                } else if (transInfo.source === 'fawazahmed') {
-                    try {
-                        const data = await this.fetchJson(`https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${transInfo.apiId}/${surah}.json`);
-                        transCached = { translationData: data };
-                    } catch (e) {
-                        console.warn('⚠️ Translation fetch failed:', e);
-                        transCached = { translationData: null };
-                    }
-                } else {
-                    try {
-                        const data = await this.fetchJson(`https://api.alquran.cloud/v1/surah/${surah}/${transInfo.apiId}`);
-                        transCached = { translationData: data };
-                    } catch (e) {
-                        console.warn('⚠️ Translation fetch failed:', e);
-                        transCached = { translationData: null };
-                    }
-                }
-                this._memCache[transCacheKey] = transCached;
-                this.setCache(transCacheKey, transCached);
+            if (loading) {
+                loading.remove();
+            }
+
+            if (!arabicCached) {
+                const errorDiv = container.createDiv({ cls: 'quran-error' });
+                errorDiv.textContent = 'Failed to load verses. Please check your internet connection.';
+                return;
             }
 
             const { arabicData, transliterationFetchData } = arabicCached;
-            const translationFetchData = transCached.translationData;
+            const translationFetchData = transCached?.translationData || null;
 
             const arabicVerses = arabicData.data.ayahs.slice(startVerse - 1, endVerse);
             const translationVerses = [];
             if (translationFetchData) {
                 if (translationFetchData.verses) {
-                    // Quran.com API v4 format
                     const allVerses = translationFetchData.verses;
                     const sliced = allVerses.slice(startVerse - 1, endVerse);
                     sliced.forEach(v => {
@@ -1217,14 +1437,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                         translationVerses.push({ text: t?.text || '' });
                     });
                 } else if (translationFetchData.chapter) {
-                    // fawazahmed0 API format
                     const allVerses = translationFetchData.chapter;
                     const sliced = allVerses.slice(startVerse - 1, endVerse);
                     sliced.forEach(v => {
                         translationVerses.push({ text: v.text || '' });
                     });
                 } else if (translationFetchData.data?.ayahs) {
-                    // AlQuran.cloud format
                     translationFetchData.data.ayahs.slice(startVerse - 1, endVerse).forEach(a => {
                         translationVerses.push({ text: a.text });
                     });
@@ -1256,13 +1474,22 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
             let pageMap = (this.settings.experimentalV4Tajweed && pageMapCached) ? pageMapCached.map : null;
 
+            if (this.settings.experimentalV4Tajweed && !this._qpcV4Data) {
+                try {
+                    const adapter = this.app.vault.adapter;
+                    const pluginDir = this.getPluginDir();
+                    const raw = await adapter.read(`${pluginDir}/data/qpc-v4.json`);
+                    this._qpcV4Data = JSON.parse(raw);
+                } catch {}
+            }
+
             if (this.settings.experimentalV4Tajweed && pageMap && this._qpcV4Data) {
                 const allPages = new Set();
                 for (const verse of arabicVerses) {
                     const a = verse.numberInSurah;
                     let w = 1;
                     while (this._qpcV4Data[`${surah}:${a}:${w}`]) {
-                        const pg = pageMap[`${a}:${w}`];
+                        const pg = parseInt(pageMap[`${a}:${w}`]);
                         if (pg) allPages.add(pg);
                         w++;
                     }
