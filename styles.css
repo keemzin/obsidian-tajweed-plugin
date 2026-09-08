@@ -1095,3 +1095,32 @@ body:not(.theme-light) .quran-v4-mode .quran-word-v4 {
     border-color: var(--interactive-accent);
     opacity: 1;
 }
+
+@keyframes quran-block-pulse-highlight {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--interactive-accent-rgb, 100, 108, 255), 0.7);
+        border-color: var(--interactive-accent);
+        transform: scale(1);
+    }
+    25% {
+        box-shadow: 0 0 0 4px rgba(var(--interactive-accent-rgb, 100, 108, 255), 0.35), 0 8px 24px rgba(0, 0, 0, 0.15);
+        border-color: var(--interactive-accent);
+        transform: scale(1.008);
+    }
+    60% {
+        box-shadow: 0 0 0 8px rgba(var(--interactive-accent-rgb, 100, 108, 255), 0), 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-color: var(--interactive-accent);
+        transform: scale(1.002);
+    }
+    100% {
+        box-shadow: 0 0 0 0 transparent;
+        border-color: var(--background-modifier-border);
+        transform: scale(1);
+    }
+}
+
+.quran-tajweed-container.quran-block-flash {
+    animation: quran-block-pulse-highlight 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    z-index: 2;
+}
+

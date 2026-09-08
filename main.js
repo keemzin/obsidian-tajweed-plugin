@@ -2551,18 +2551,36 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 el.classList.remove('quran-block-flash');
                 void el.offsetWidth;
                 el.classList.add('quran-block-flash');
-                setTimeout(() => el.classList.remove('quran-block-flash'), 1200);
+                setTimeout(() => el.classList.remove('quran-block-flash'), 1500);
+            };
+
+            const smoothScrollTo = (container, targetTop, duration = 460) => {
+                const startTop = container.scrollTop;
+                const diff = targetTop - startTop;
+                if (Math.abs(diff) < 2) return;
+                const startTime = performance.now();
+                const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+                const step = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    container.scrollTop = startTop + diff * easeOutCubic(progress);
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                    }
+                };
+                requestAnimationFrame(step);
             };
 
             const scrollToElement = (el, smooth = true) => {
                 if (scrollEl && scrollEl !== document.documentElement) {
                     const elRect = el.getBoundingClientRect();
                     const scrollerRect = scrollEl.getBoundingClientRect();
-                    const offsetTop = scrollEl.scrollTop + (elRect.top - scrollerRect.top) - 30;
+                    const offsetTop = Math.max(0, scrollEl.scrollTop + (elRect.top - scrollerRect.top) - 30);
                     if (smooth) {
-                        scrollEl.scrollTo({ top: Math.max(0, offsetTop), behavior: 'smooth' });
+                        smoothScrollTo(scrollEl, offsetTop, 460);
                     } else {
-                        scrollEl.scrollTop = Math.max(0, offsetTop);
+                        scrollEl.scrollTop = offsetTop;
                     }
                 } else {
                     el.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant', block: 'start' });
@@ -2575,14 +2593,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const target = matching.length === 1 ? matching[0] : (matching[idx] || matching[0]);
 
             if (target) {
-                const elRect = target.getBoundingClientRect();
-                const distFromView = Math.abs(elRect.top);
-                const isNearby = distFromView <= window.innerHeight * 1.5;
-                scrollToElement(target, isNearby);
-                if (!isNearby) {
-                    clearTimeout(index._scrollLockTimer);
-                    index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 400);
-                }
+                scrollToElement(target, true);
+                clearTimeout(index._scrollLockTimer);
+                index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 520);
                 return;
             }
 
@@ -2606,9 +2619,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     const foundMatching = foundContainers.filter(c => c.dataset.quranRef === b.ref);
                     const found = foundMatching.length === 1 ? foundMatching[0] : (foundMatching[idx] || foundMatching[0]);
                     if (found) {
-                        scrollToElement(found, false);
+                        scrollToElement(found, true);
                         clearTimeout(index._scrollLockTimer);
-                        index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 400);
+                        index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 520);
                         return;
                     }
                     setTimeout(() => checkInterval(attemptsLeft - 1), 60);
@@ -2619,21 +2632,16 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 const ratio = blocks.length > 1 ? idx / (blocks.length - 1) : 0;
                 const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
                 const targetTop = Math.max(0, ratio * maxScroll);
-                const isNearby = Math.abs(targetTop - scrollEl.scrollTop) <= window.innerHeight * 1.5;
-                if (isNearby) {
-                    scrollEl.scrollTo({ top: targetTop, behavior: 'smooth' });
-                } else {
-                    scrollEl.scrollTop = targetTop;
-                }
+                smoothScrollTo(scrollEl, targetTop, 460);
 
                 setTimeout(() => {
                     const foundContainers = getContainers();
                     const found = foundContainers.find(c => c.dataset.quranRef === b.ref);
                     if (found) {
-                        scrollToElement(found, false);
+                        scrollToElement(found, true);
                     }
                     index._scrollLocked = false;
-                }, isNearby ? 400 : 50);
+                }, 480);
             }
         };
 
