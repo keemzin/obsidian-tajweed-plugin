@@ -114,6 +114,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         this._memCache = {};
         this._v4PageFontsLoaded = new Set();
+        this.injectV4PaletteStyles();
 
         // Add settings tab
         this.addSettingTab(new QuranTajweedSettingTab(this.app, this));
@@ -311,6 +312,21 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         });
     }
 
+    injectV4PaletteStyles() {
+        if (document.getElementById('quran-v4-palette-styles')) return;
+        const allFamilies = Array.from({ length: 604 }, (_, i) => `'qul-v4-p${i + 1}'`).join(', ');
+        const style = document.createElement('style');
+        style.id = 'quran-v4-palette-styles';
+        style.textContent = `@font-palette-values --quran-v4-dark { font-family: ${allFamilies}; base-palette: 1; } @font-palette-values --quran-v4-light { font-family: ${allFamilies}; base-palette: 0; }`;
+        document.head.appendChild(style);
+    }
+
+    onunload() {
+        document.getElementById('quran-v4-palette-styles')?.remove();
+        document.querySelector('.quran-page-index')?.remove();
+        document.querySelector('.quran-mini-player')?.remove();
+    }
+
     getPluginDir() {
         return this.manifest.dir || (this.app?.vault?.configDir ? `${this.app.vault.configDir}/plugins/${this.manifest.id}` : `.obsidian/plugins/${this.manifest.id}`);
     }
@@ -412,9 +428,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 return false;
             }
 
-            const tajweedClass = this.getTajweedClassForWord(verse.text, w);
             const wordSpan = document.createElement('span');
-            if (tajweedClass) wordSpan.className = tajweedClass;
+            wordSpan.className = 'quran-word-v4';
             wordSpan.style.fontFamily = `'qul-v4-p${page}', serif`;
             wordSpan.style.unicodeBidi = 'bidi-override';
             wordSpan.textContent = glyphEntry.text;

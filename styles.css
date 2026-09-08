@@ -360,19 +360,23 @@
     flex: 1;
 }
 
-.theme-dark .quran-v4-mode .quran-verse {
-    background: #f5f0e8;
+.quran-v4-mode {
+    font-palette: --quran-v4-light;
 }
 
-.theme-dark .quran-v4-mode .quran-translation,
-.theme-dark .quran-v4-mode .quran-transliteration {
-    color: #1a1a1a;
-    border-top-color: #ccc;
+.theme-dark .quran-v4-mode,
+.theme-dark .quran-v4-mode .quran-verse-text,
+.theme-dark .quran-v4-mode .quran-word-v4,
+body:not(.theme-light) .quran-v4-mode,
+body:not(.theme-light) .quran-v4-mode .quran-verse-text,
+body:not(.theme-light) .quran-v4-mode .quran-word-v4 {
+    font-palette: --quran-v4-dark;
 }
 
-.theme-dark .quran-v4-mode .quran-translation-prefix,
-.theme-dark .quran-v4-mode .quran-transliteration-prefix {
-    color: #111;
+.theme-light .quran-v4-mode,
+.theme-light .quran-v4-mode .quran-verse-text,
+.theme-light .quran-v4-mode .quran-word-v4 {
+    font-palette: --quran-v4-light;
 }
 
 .quran-page-index {
