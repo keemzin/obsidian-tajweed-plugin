@@ -259,16 +259,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         // Load saved settings
         await this.loadSettings();
 
-        // Load QPC V4 glyph data from bundled JSON
         this._qpcV4Data = null;
-        try {
-            const adapter = this.app.vault.adapter;
-            const pluginDir = this.getPluginDir();
-            const raw = await adapter.read(`${pluginDir}/data/qpc-v4.json`);
-            this._qpcV4Data = JSON.parse(raw);
-        } catch (e) {
-            console.warn('⚠️ Could not load qpc-v4.json:', e);
-        }
+        this.ensureQpcV4Data().catch(() => {});
 
         this._memCache = {};
         this._v4PageFontsLoaded = new Set();
@@ -504,6 +496,41 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
     getPluginDir() {
         return this.manifest.dir || (this.app?.vault?.configDir ? `${this.app.vault.configDir}/plugins/${this.manifest.id}` : `.obsidian/plugins/${this.manifest.id}`);
+    }
+
+    async ensureQpcV4Data() {
+        if (this._qpcV4Data) return this._qpcV4Data;
+        const adapter = this.app.vault.adapter;
+        const pluginDir = this.getPluginDir();
+        const localPath = `${pluginDir}/data/qpc-v4.json`;
+        const cachePath = `${pluginDir}/cache/qpc-v4.json`;
+
+        for (const p of [localPath, cachePath]) {
+            try {
+                if (await adapter.exists(p)) {
+                    const raw = await adapter.read(p);
+                    this._qpcV4Data = JSON.parse(raw);
+                    return this._qpcV4Data;
+                }
+            } catch {}
+        }
+
+        try {
+            const { requestUrl } = require('obsidian');
+            const res = await requestUrl({
+                url: 'https://raw.githubusercontent.com/keemzin/obsidian-tajweed-plugin/feat/v4-tajweed-font/data/qpc-v4.json'
+            });
+            if (res.status === 200) {
+                this._qpcV4Data = typeof res.json === 'object' ? res.json : JSON.parse(res.text);
+                const cacheDir = `${pluginDir}/cache`;
+                if (!(await adapter.exists(cacheDir))) {
+                    await adapter.mkdir(cacheDir);
+                }
+                await adapter.write(cachePath, JSON.stringify(this._qpcV4Data));
+                return this._qpcV4Data;
+            }
+        } catch {}
+        return null;
     }
 
     async ensureQulV4FontLoaded(page) {
@@ -1937,12 +1964,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         const task = (async () => {
             if (this.settings.experimentalV4Tajweed && !this._qpcV4Data) {
-                try {
-                    const adapter = this.app.vault.adapter;
-                    const pluginDir = this.getPluginDir();
-                    const raw = await adapter.read(`${pluginDir}/data/qpc-v4.json`);
-                    this._qpcV4Data = JSON.parse(raw);
-                } catch {}
+                await this.ensureQpcV4Data();
             }
 
             const arabicCacheKey = `quran-surah-${surah}`;
@@ -2238,12 +2260,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             let pageMap = (this.settings.experimentalV4Tajweed && pageMapCached) ? pageMapCached.map : null;
 
             if (this.settings.experimentalV4Tajweed && !this._qpcV4Data) {
-                try {
-                    const adapter = this.app.vault.adapter;
-                    const pluginDir = this.getPluginDir();
-                    const raw = await adapter.read(`${pluginDir}/data/qpc-v4.json`);
-                    this._qpcV4Data = JSON.parse(raw);
-                } catch {}
+                await this.ensureQpcV4Data();
             }
 
             if (this.settings.experimentalV4Tajweed && pageMap && this._qpcV4Data) {
