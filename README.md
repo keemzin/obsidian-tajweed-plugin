@@ -20,7 +20,49 @@ Display Quranic verses with beautiful Tajweed color-coding, audio playback, tran
 
 ## Installation
 
-Copy `main.js`, `styles.css`, and `manifest.json` into `.obsidian/plugins/quran-tajweed/` in your vault, then enable the plugin in **Settings → Community Plugins**.
+> [!NOTE]
+> Currently, the plugin is distributed for beta testing and can be installed via **BRAT (Beta Reviewer's Auto-update Tool)** or manual installation.
+
+### Method 1: Install via BRAT (Recommended)
+
+BRAT automates downloading, installing, and updating beta plugins directly inside Obsidian.
+
+#### Step 1: Install BRAT from Obsidian Community Plugins
+1. In Obsidian, open **Settings** (`Ctrl+,` or `Cmd+,`).
+2. Select **Community plugins** from the left sidebar.
+3. Ensure **Restricted mode** is turned **OFF**.
+4. Click **Browse** next to Community plugins.
+5. Search for **BRAT** (*Obsidian42 - BRAT* by TfTHacker).
+6. Click **Install**, then click **Enable**.
+
+#### Step 2: Add Quran Tajweed to BRAT
+1. Open the Obsidian Command Palette (`Ctrl+P` on Windows/Linux or `Cmd+P` on macOS).
+2. Type and select: **`BRAT: Add a beta plugin for testing`**.
+3. In the repository URL prompt, enter:
+   ```text
+   https://github.com/keemzin/obsidian-tajweed-plugin
+   ```
+   *(or simply `keemzin/obsidian-tajweed-plugin`)*
+4. Click **Add Plugin**. BRAT will download the latest release files and register the plugin.
+
+#### Step 3: Enable Quran Tajweed
+1. Go back to **Settings → Community plugins**.
+2. Scroll down to **Installed plugins** and toggle **Quran Tajweed** **ON**.
+
+*(BRAT will automatically check for updates and keep your plugin up to date whenever new releases are published!)*
+
+---
+
+### Method 2: Manual Installation
+
+1. Download `main.js`, `styles.css`, and `manifest.json` from the latest [GitHub Release](https://github.com/keemzin/obsidian-tajweed-plugin/releases).
+2. Navigate to your Obsidian vault directory and open `.obsidian/plugins/`.
+3. Create a new folder named `quran-tajweed`:
+   ```text
+   <Your-Vault>/.obsidian/plugins/quran-tajweed/
+   ```
+4. Move `main.js`, `styles.css`, and `manifest.json` into that folder.
+5. In Obsidian, open **Settings → Community plugins**, click **Reload plugins**, and toggle **Quran Tajweed** **ON**.
 
 ## Usage
 
