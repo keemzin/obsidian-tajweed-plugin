@@ -18,6 +18,38 @@ Display Quranic verses with beautiful Tajweed color-coding, audio playback, tran
 - **Custom Reciters** — 13+ renowned reciters (Alafasy, Abdul Basit, Sudais, Minshawi, Husary, etc.)
 - **Responsive & Mobile-Ready** — Seamless support on both desktop (Windows, macOS, Linux) and mobile (iOS, Android)
 
+## Demos & Showcase
+
+### 1. Insert Verse Blocks (Command Palette & Quick Dock)
+<!-- Replace placeholder with your GIF file or GitHub image URL -->
+![Insert via Command Palette](assets/demo-command-palette.gif)
+
+*Insert pre-configured blocks using `Ctrl+P` → "Insert Quran verse block", or use the header `+` and bottom dock icons to quickly continue sequential passages or insert starter blocks.*
+
+---
+
+### 2. Live Verse & Surah Navigation
+<!-- Replace placeholder with your GIF file or GitHub image URL -->
+![Change Verse Range](assets/demo-change-verse.gif)
+
+*Switch surahs and verse ranges on the fly using interactive header dropdowns. Changes persist directly to your markdown note automatically.*
+
+---
+
+### 3. Word-by-Word Study & Tajweed Breakdown
+<!-- Replace placeholder with your GIF file or GitHub image URL -->
+![Word-by-Word Interactivity](assets/demo-wbw-cards.gif)
+
+*Click or hover any word to view its English meaning, transliteration, pronunciation audio, and color-coded Tajweed rule explanation cards.*
+
+---
+
+### 4. 3D Side Wheel Index Scroller
+<!-- Replace placeholder with your GIF file or GitHub image URL -->
+![3D Side Index Wheel Navigation](assets/demo-scroller-wheel.gif)
+
+*Effortlessly navigate long study notes with the floating 3D wheel dock. Features active verse tracking, draggable dock positioning, and smooth scroll transitions with landing pulse highlights.*
+
 ## Installation
 
 > [!NOTE]
