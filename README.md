@@ -22,7 +22,8 @@ Display Quranic verses with beautiful Tajweed color-coding, audio playback, tran
 
 ### 1. Insert Verse Blocks (Command Palette & Quick Dock)
 <!-- Replace placeholder with your GIF file or GitHub image URL -->
-![Insert via Command Palette](assets/demo-command-palette.gif)
+<img width="360" height="800" alt="1" src="https://github.com/user-attachments/assets/56d0763d-e023-4e48-bc01-f0c4fee5f701" />
+
 
 *Insert pre-configured blocks using `Ctrl+P` → "Insert Quran verse block", or use the header `+` and bottom dock icons to quickly continue sequential passages or insert starter blocks.*
 
@@ -30,7 +31,8 @@ Display Quranic verses with beautiful Tajweed color-coding, audio playback, tran
 
 ### 2. Live Verse & Surah Navigation
 <!-- Replace placeholder with your GIF file or GitHub image URL -->
-![Change Verse Range](assets/demo-change-verse.gif)
+<img width="360" height="800" alt="2" src="https://github.com/user-attachments/assets/a0176de2-6316-4ecc-bab9-ef7c2032f94c" />
+
 
 *Switch surahs and verse ranges on the fly using interactive header dropdowns. Changes persist directly to your markdown note automatically.*
 
@@ -38,7 +40,8 @@ Display Quranic verses with beautiful Tajweed color-coding, audio playback, tran
 
 ### 3. Word-by-Word Study & Tajweed Breakdown
 <!-- Replace placeholder with your GIF file or GitHub image URL -->
-![Word-by-Word Interactivity](assets/demo-wbw-cards.gif)
+<img width="360" height="800" alt="4" src="https://github.com/user-attachments/assets/81b9c6d0-a1c9-4929-a536-27495d6576a8" />
+
 
 *Click or hover any word to view its English meaning, transliteration, pronunciation audio, and color-coded Tajweed rule explanation cards.*
 
@@ -46,7 +49,8 @@ Display Quranic verses with beautiful Tajweed color-coding, audio playback, tran
 
 ### 4. 3D Side Wheel Index Scroller
 <!-- Replace placeholder with your GIF file or GitHub image URL -->
-![3D Side Index Wheel Navigation](assets/demo-scroller-wheel.gif)
+<img width="360" height="800" alt="3" src="https://github.com/user-attachments/assets/1d41701f-b1b1-43e1-9bc0-ac080a91f894" />
+
 
 *Effortlessly navigate long study notes with the floating 3D wheel dock. Features active verse tracking, draggable dock positioning, and smooth scroll transitions with landing pulse highlights.*
 
