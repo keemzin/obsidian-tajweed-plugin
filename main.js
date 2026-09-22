@@ -232,7 +232,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         this.settings = {
             reciter: DEFAULT_RECITER,
             reciterName: 'Mishary Rashid Alafasy',
-            fontSize: 1.8,
+            fontSize: 2.0,
             defaultAudio: true,
             defaultTranslation: true,
             defaultTransliteration: true,
@@ -240,13 +240,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             showVerseNumbers: true,
             autoHideDuplicateVerseNumbersInV4: true,
             lineSpacing: 1.8,
-            translationFontSize: 0.7,
-            transliterationFontSize: 0.75,
-            translationVersion: 'en.sahih',
+            translationFontSize: 0.5,
+            transliterationFontSize: 0.5,
+            translationVersion: '131',
             tafsirVersion: 'en-tafisr-ibn-kathir',
             tafsirPlacement: 'inline',
             thematicTafsirOnly: true,
-            experimentalV4Tajweed: false,
+            experimentalV4Tajweed: true,
             wbwEnabled: true,
             wbwTrigger: 'hover',
             wbwAudio: true,
@@ -264,6 +264,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         this._memCache = {};
         this._v4PageFontsLoaded = new Set();
+        this._activeOpenSettingsPopover = null;
         this.injectV4PaletteStyles();
 
         // Add settings tab
@@ -411,7 +412,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         if (saved) {
             this.settings.reciter = saved.reciter || DEFAULT_RECITER;
             this.settings.reciterName = saved.reciterName || 'Mishary Rashid Alafasy';
-            this.settings.fontSize = saved.fontSize !== undefined ? saved.fontSize : 1.8;
+            this.settings.fontSize = saved.fontSize !== undefined ? saved.fontSize : 2.0;
             this.settings.defaultAudio = saved.defaultAudio !== undefined ? saved.defaultAudio : true;
             this.settings.defaultTranslation = saved.defaultTranslation !== undefined ? saved.defaultTranslation : true;
             this.settings.defaultTransliteration = saved.defaultTransliteration !== undefined ? saved.defaultTransliteration : true;
@@ -419,13 +420,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.settings.showVerseNumbers = saved.showVerseNumbers !== undefined ? saved.showVerseNumbers : true;
             this.settings.autoHideDuplicateVerseNumbersInV4 = saved.autoHideDuplicateVerseNumbersInV4 !== undefined ? saved.autoHideDuplicateVerseNumbersInV4 : true;
             this.settings.lineSpacing = saved.lineSpacing !== undefined ? saved.lineSpacing : 1.8;
-            this.settings.translationFontSize = saved.translationFontSize !== undefined ? saved.translationFontSize : 0.7;
-            this.settings.transliterationFontSize = saved.transliterationFontSize !== undefined ? saved.transliterationFontSize : 0.75;
-            this.settings.translationVersion = saved.translationVersion !== undefined ? saved.translationVersion : 'en.sahih';
+            this.settings.translationFontSize = saved.translationFontSize !== undefined ? saved.translationFontSize : 0.5;
+            this.settings.transliterationFontSize = saved.transliterationFontSize !== undefined ? saved.transliterationFontSize : 0.5;
+            this.settings.translationVersion = saved.translationVersion !== undefined ? saved.translationVersion : '131';
             this.settings.tafsirVersion = saved.tafsirVersion !== undefined ? saved.tafsirVersion : 'en-tafisr-ibn-kathir';
             this.settings.tafsirPlacement = saved.tafsirPlacement || 'inline';
             this.settings.thematicTafsirOnly = saved.thematicTafsirOnly !== undefined ? saved.thematicTafsirOnly : true;
-            this.settings.experimentalV4Tajweed = saved.experimentalV4Tajweed !== undefined ? saved.experimentalV4Tajweed : false;
+            this.settings.experimentalV4Tajweed = saved.experimentalV4Tajweed !== undefined ? saved.experimentalV4Tajweed : true;
             this.settings.wbwEnabled = saved.wbwEnabled !== undefined ? saved.wbwEnabled : true;
             this.settings.wbwTrigger = saved.wbwTrigger || 'hover';
             this.settings.wbwAudio = saved.wbwAudio !== undefined ? saved.wbwAudio : true;
@@ -1170,11 +1171,14 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         addPopover.appendChild(addNewBelowRow);
         addPopover.appendChild(addNewAboveRow);
 
+        addPopover.onclick = (e) => e.stopPropagation();
+
         addBtn.onclick = (e) => {
             e.stopPropagation();
             const isVisible = addPopover.style.display !== 'none';
             document.querySelectorAll('.quran-settings-popover').forEach(p => p.style.display = 'none');
             addPopover.style.display = isVisible ? 'none' : 'block';
+            this._activeOpenSettingsPopover = null;
         };
 
         const settingsBtn = document.createElement('button');
@@ -1182,9 +1186,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
         settingsBtn.title = 'Quick settings';
 
+        const blockKey = `${surah}:${startVerse}-${endVerse}`;
         const settingsPopover = document.createElement('div');
         settingsPopover.className = 'quran-settings-popover';
-        settingsPopover.style.display = 'none';
+        settingsPopover.style.display = (this._activeOpenSettingsPopover === blockKey) ? 'block' : 'none';
+        settingsPopover.onclick = (e) => e.stopPropagation();
 
         const items = [
             { key: 'translationEnabled', label: 'Translation' },
@@ -1198,13 +1204,14 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const state = container._quranState || {};
             const isActive = state[key];
             row.innerHTML = `<span>${label}</span><span class="quran-settings-toggle ${isActive ? 'on' : 'off'}"></span>`;
-            row.onclick = async () => {
+            row.onclick = async (e) => {
+                e.stopPropagation();
                 const st = container._quranState;
                 if (!st) return;
-                settingsPopover.style.display = 'none';
                 st[key] = !st[key];
                 row.querySelector('.quran-settings-toggle').className = `quran-settings-toggle ${st[key] ? 'on' : 'off'}`;
                 this.applyToggle(container, st, key);
+                this._activeOpenSettingsPopover = blockKey;
                 await this.updateSourceParam(container, key, st[key]);
             };
             settingsPopover.appendChild(row);
@@ -1220,6 +1227,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         gearAddBelow.onclick = async (e) => {
             e.stopPropagation();
             settingsPopover.style.display = 'none';
+            this._activeOpenSettingsPopover = null;
             await this.insertQuranBlock(container, 'below');
         };
         settingsPopover.appendChild(gearAddBelow);
@@ -1230,6 +1238,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         gearAddAbove.onclick = async (e) => {
             e.stopPropagation();
             settingsPopover.style.display = 'none';
+            this._activeOpenSettingsPopover = null;
             await this.insertQuranBlock(container, 'above');
         };
         settingsPopover.appendChild(gearAddAbove);
@@ -1240,6 +1249,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         gearAddNew.onclick = async (e) => {
             e.stopPropagation();
             settingsPopover.style.display = 'none';
+            this._activeOpenSettingsPopover = null;
             await this.insertQuranBlock(container, 'below', '1:1');
         };
         settingsPopover.appendChild(gearAddNew);
@@ -1257,6 +1267,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (deleteRow.dataset.confirming === 'true') {
                 clearTimeout(confirmTimer);
                 settingsPopover.style.display = 'none';
+                this._activeOpenSettingsPopover = null;
                 await this.deleteQuranBlock(container);
             } else {
                 deleteRow.dataset.confirming = 'true';
@@ -1296,12 +1307,16 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const isVisible = settingsPopover.style.display !== 'none';
             document.querySelectorAll('.quran-settings-popover').forEach(p => p.style.display = 'none');
             settingsPopover.style.display = isVisible ? 'none' : 'block';
+            this._activeOpenSettingsPopover = isVisible ? null : blockKey;
         };
 
         const onDocClick = (e) => {
             if (!controlsContainer.contains(e.target)) {
                 addPopover.style.display = 'none';
                 settingsPopover.style.display = 'none';
+                if (this._activeOpenSettingsPopover === blockKey) {
+                    this._activeOpenSettingsPopover = null;
+                }
             }
         };
         document.addEventListener('click', onDocClick);
