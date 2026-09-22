@@ -1192,18 +1192,35 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         settingsPopover.style.display = (this._activeOpenSettingsPopover === blockKey) ? 'block' : 'none';
         settingsPopover.onclick = (e) => e.stopPropagation();
 
+        const displaySection = document.createElement('div');
+        displaySection.className = 'quran-settings-section-header';
+        displaySection.textContent = 'Display';
+        settingsPopover.appendChild(displaySection);
+
         const items = [
-            { key: 'translationEnabled', label: 'Translation' },
-            { key: 'transliterationEnabled', label: 'Transliteration' },
-            { key: 'audioEnabled', label: 'Audio' },
+            {
+                key: 'translationEnabled',
+                label: 'Translation',
+                icon: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'
+            },
+            {
+                key: 'transliterationEnabled',
+                label: 'Transliteration',
+                icon: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>'
+            },
+            {
+                key: 'audioEnabled',
+                label: 'Audio',
+                icon: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>'
+            }
         ];
 
-        items.forEach(({ key, label }) => {
+        items.forEach(({ key, label, icon }) => {
             const row = document.createElement('div');
             row.className = 'quran-settings-row';
             const state = container._quranState || {};
             const isActive = state[key];
-            row.innerHTML = `<span>${label}</span><span class="quran-settings-toggle ${isActive ? 'on' : 'off'}"></span>`;
+            row.innerHTML = `<span class="quran-row-label">${icon} <span>${label}</span></span><span class="quran-settings-toggle ${isActive ? 'on' : 'off'}"></span>`;
             row.onclick = async (e) => {
                 e.stopPropagation();
                 const st = container._quranState;
@@ -1220,6 +1237,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const divider = document.createElement('div');
         divider.className = 'quran-settings-divider';
         settingsPopover.appendChild(divider);
+
+        const actionsSection = document.createElement('div');
+        actionsSection.className = 'quran-settings-section-header';
+        actionsSection.textContent = 'Block Actions';
+        settingsPopover.appendChild(actionsSection);
 
         const gearAddBelow = document.createElement('div');
         gearAddBelow.className = 'quran-settings-row quran-action-row';

@@ -186,9 +186,18 @@
     border: 1px solid var(--background-modifier-border);
     border-radius: 6px;
     padding: 4px 0;
-    min-width: 175px;
+    min-width: 185px;
     z-index: 100;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
+.quran-settings-section-header {
+    font-size: 0.58em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 6px 12px 2px 12px;
+    user-select: none;
 }
 .quran-settings-row {
     display: flex;
@@ -196,8 +205,8 @@
     justify-content: space-between;
     padding: 6px 12px;
     cursor: pointer;
-    font-size: 0.65em;
-    font-family: Arial, sans-serif;
+    font-size: 0.68em;
+    font-family: var(--font-interface, sans-serif);
     color: var(--text-normal);
     transition: background 0.1s;
 }
@@ -215,10 +224,15 @@
 .quran-row-label {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
 }
 .quran-row-label svg {
     flex-shrink: 0;
+    opacity: 0.75;
+    transition: opacity 0.1s;
+}
+.quran-settings-row:hover .quran-row-label svg {
+    opacity: 1;
 }
 .quran-settings-row.quran-delete-row {
     color: var(--text-error, #e05252);
