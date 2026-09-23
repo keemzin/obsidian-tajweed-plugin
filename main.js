@@ -3880,7 +3880,7 @@ class QuranTajweedSettingTab extends PluginSettingTab {
         const aboutDiv = containerEl.createDiv();
         aboutDiv.style.cssText = 'font-size: 0.85em; color: var(--text-muted); padding: 10px 0;';
         aboutDiv.innerHTML = `
-            <p><strong>Quran Tajweed Plugin</strong> v1.2.0</p>
+            <p><strong>Quran Tajweed Plugin</strong> v${this.plugin.manifest.version}</p>
             <p>Display Quranic verses with Tajweed colors, word-by-word breakdown, audio recitation, translations, and tafsir.</p>
             <p>Data sources: <a href="https://alquran.cloud" target="_blank">AlQuran.cloud</a> | 
                <a href="https://quran.com" target="_blank">Quran.com API</a> | 
