@@ -2635,6 +2635,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const wheelHeight = 210;
         const halfH = wheelHeight / 2;
         const padY = (wheelHeight - itemHeight) / 2;
+        let isProgrammaticScroll = false;
+        let findActiveIdx = () => 0;
 
         const pill = document.createElement('div');
         pill.className = 'quran-index-pill';
@@ -2694,8 +2696,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 if (!didMovePill) {
                     index.classList.toggle('quran-index-open');
                     if (index.classList.contains('quran-index-open')) {
-                        wheelScroll.scrollTo({ top: index._activeIdx * itemHeight, behavior: 'instant' });
-                        updateWheelVisuals(index._activeIdx);
+                        const currentNoteIdx = Math.min(Math.max(0, findActiveIdx()), blocks.length - 1);
+                        index._activeIdx = currentNoteIdx;
+                        isProgrammaticScroll = true;
+                        wheelScroll.scrollTo({ top: currentNoteIdx * itemHeight, behavior: 'instant' });
+                        setTimeout(() => { isProgrammaticScroll = false; }, 50);
+                        updateWheelVisuals(currentNoteIdx);
                     }
                 } else {
                     const rect = index.getBoundingClientRect();
@@ -2771,7 +2777,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         let pointerStartScroll = 0;
         let pointerDidMove = false;
         let isWheelUserScrolling = false;
-        let wheelGestureTimer = null;
+        let scrollSettleTimer = null;
         let rAF = null;
 
         const itemElements = [];
@@ -2848,7 +2854,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const snappedIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
             const targetScroll = snappedIdx * itemHeight;
             if (Math.abs(wheelScroll.scrollTop - targetScroll) > 1) {
+                isProgrammaticScroll = true;
                 wheelScroll.scrollTo({ top: targetScroll, behavior: 'smooth' });
+                setTimeout(() => { isProgrammaticScroll = false; }, 260);
             }
             index._activeIdx = snappedIdx;
             updateWheelVisuals(snappedIdx);
@@ -2856,12 +2864,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         };
 
         const findTargetContainer = (b, idx) => {
+            if (!b || !b.ref) return null;
             const containers = getContainers();
             if (containers.length === 0) return null;
-
-            if (containers[idx] && (containers[idx].dataset.quranRef === b.ref || !b.ref)) {
-                return containers[idx];
-            }
 
             let occurrenceIdx = 0;
             for (let i = 0; i < idx; i++) {
@@ -2873,12 +2878,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 return matching[occurrenceIdx] || matching[matching.length - 1];
             }
 
-            if (containers[idx]) return containers[idx];
-
             return null;
         };
 
         const navigateToBlock = (b, idx) => {
+            if (!b) return;
             index._scrollLocked = true;
             clearTimeout(index._scrollLockTimer);
             index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1600);
@@ -2891,9 +2895,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             };
 
             const getActiveScroller = (el) => {
-                return (el && el.closest('.markdown-preview-view, .cm-scroller, .view-content'))
+                return (el && el.closest('.markdown-preview-view, .cm-scroller'))
                     || document.querySelector('.workspace-leaf.mod-active .markdown-preview-view')
                     || document.querySelector('.workspace-leaf.mod-active .cm-scroller')
+                    || (el && el.closest('.view-content'))
                     || document.querySelector('.markdown-preview-view')
                     || document.querySelector('.cm-scroller')
                     || document.documentElement;
@@ -2938,25 +2943,33 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (target) {
                 scrollToElement(target, true);
                 clearTimeout(index._scrollLockTimer);
-                index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 520);
+                index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 800);
                 return;
             }
 
             const { MarkdownView } = require('obsidian');
             const view = this.app?.workspace?.getActiveViewOfType(MarkdownView);
 
-            if (view && typeof b.line === 'number' && view.editor) {
+            if (view && typeof b.line === 'number') {
                 if (typeof view.setEphemeralState === 'function') {
                     view.setEphemeralState({ line: b.line });
                 }
-            }
-
-            const scrollEl = getActiveScroller(null);
-            if (scrollEl) {
-                const ratio = blocks.length > 1 ? idx / (blocks.length - 1) : 0;
-                const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-                const targetTop = Math.max(0, ratio * maxScroll);
-                smoothScrollTo(scrollEl, targetTop, 460);
+                if (view.previewMode && typeof view.previewMode.applyScroll === 'function') {
+                    view.previewMode.applyScroll(b.line);
+                }
+                if (view.editor && typeof view.editor.scrollIntoView === 'function') {
+                    view.editor.scrollIntoView({ from: { line: b.line, ch: 0 }, to: { line: b.line, ch: 0 } }, true);
+                }
+            } else {
+                const scrollEl = getActiveScroller(null);
+                if (scrollEl && typeof b.line === 'number') {
+                    const lastLine = (blocks.length > 0 && typeof blocks[blocks.length - 1].line === 'number')
+                        ? blocks[blocks.length - 1].line + 30
+                        : 100;
+                    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+                    const targetTop = Math.max(0, (b.line / Math.max(1, lastLine)) * maxScroll);
+                    smoothScrollTo(scrollEl, targetTop, 460);
+                }
             }
 
             const checkInterval = (attemptsLeft) => {
@@ -2968,13 +2981,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 if (found) {
                     scrollToElement(found, true);
                     clearTimeout(index._scrollLockTimer);
-                    index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 520);
+                    index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 800);
                     return;
                 }
                 setTimeout(() => checkInterval(attemptsLeft - 1), 60);
             };
 
-            setTimeout(() => checkInterval(12), 60);
+            setTimeout(() => checkInterval(20), 60);
         };
 
         const updateWheelVisuals = (activeIdx) => {
@@ -3015,27 +3028,20 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             clearBufferTimer();
             const clamped = Math.max(0, Math.min(blocks.length - 1, idx));
             index._activeIdx = clamped;
+            isProgrammaticScroll = true;
             wheelScroll.scrollTo({ top: clamped * itemHeight, behavior: 'smooth' });
+            setTimeout(() => { isProgrammaticScroll = false; }, 260);
             updateWheelVisuals(clamped);
-            if (scrollToNote) {
+            if (scrollToNote && blocks[clamped]) {
                 navigateToBlock(blocks[clamped], clamped);
             }
         };
 
-        const waitForScrollToStop = (callback) => {
-            let stopTimer = null;
-            let checkListener = null;
-            const done = () => {
-                clearTimeout(stopTimer);
-                if (checkListener) wheelScroll.removeEventListener('scroll', checkListener);
-                callback();
-            };
-            checkListener = () => {
-                clearTimeout(stopTimer);
-                stopTimer = setTimeout(done, 100);
-            };
-            wheelScroll.addEventListener('scroll', checkListener, { passive: true });
-            stopTimer = setTimeout(done, 100);
+        const onUserScrollSettled = () => {
+            if (isPointerDown) return;
+            isWheelUserScrolling = false;
+            const snappedIdx = snapWheel();
+            startBufferTimer(snappedIdx, 350);
         };
 
         wheelScroll.addEventListener('scroll', () => {
@@ -3044,27 +3050,35 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 const currentIdx = Math.max(0, Math.min(blocks.length - 1, Math.round(wheelScroll.scrollTop / itemHeight)));
                 updateWheelVisuals(currentIdx);
             });
+
+            if (isProgrammaticScroll) return;
+
+            clearBufferTimer();
+            isWheelUserScrolling = true;
+            clearTimeout(scrollSettleTimer);
+            scrollSettleTimer = setTimeout(onUserScrollSettled, 140);
+        }, { passive: true });
+
+        wheelScroll.addEventListener('scrollend', () => {
+            if (isProgrammaticScroll || isPointerDown) return;
+            clearTimeout(scrollSettleTimer);
+            onUserScrollSettled();
         }, { passive: true });
 
         wheelScroll.addEventListener('wheel', () => {
+            if (isProgrammaticScroll) return;
             clearBufferTimer();
             isWheelUserScrolling = true;
-            clearTimeout(wheelGestureTimer);
-            wheelGestureTimer = setTimeout(() => {
-                isWheelUserScrolling = false;
-                if (isPointerDown) return;
-                const snappedIdx = snapWheel();
-                startBufferTimer(snappedIdx, 400);
-            }, 200);
         }, { passive: true });
 
         wheelScroll.addEventListener('pointerdown', (e) => {
             clearBufferTimer();
+            clearTimeout(scrollSettleTimer);
             isPointerDown = true;
+            isWheelUserScrolling = true;
             pointerDidMove = false;
             pointerStartY = e.clientY;
             pointerStartScroll = wheelScroll.scrollTop;
-            clearTimeout(wheelGestureTimer);
             wheelScroll.classList.add('quran-wheel-grabbing');
         });
 
@@ -3084,12 +3098,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             isPointerDown = false;
             wheelScroll.classList.remove('quran-wheel-grabbing');
             if (pointerDidMove) {
-                waitForScrollToStop(() => {
-                    if (isPointerDown) return;
-                    const snappedIdx = snapWheel();
-                    startBufferTimer(snappedIdx, 400);
-                });
+                clearTimeout(scrollSettleTimer);
+                scrollSettleTimer = setTimeout(onUserScrollSettled, 80);
                 setTimeout(() => { pointerDidMove = false; }, 120);
+            } else {
+                isWheelUserScrolling = false;
             }
         };
 
@@ -3117,11 +3130,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         index._docListeners.push({ type: 'click', fn: onDocClick });
         index._docListeners.push({ type: 'keydown', fn: onDocKeyDown });
 
-        const findActiveIdx = () => {
+        findActiveIdx = () => {
             const containers = getContainers();
-            if (containers.length === 0) return 0;
+            if (containers.length === 0) return index._activeIdx ?? 0;
             const viewH = window.innerHeight;
-            let bestIdx = 0;
+            let bestIdx = -1;
             let bestScore = -Infinity;
             containers.forEach((c, domIdx) => {
                 const rect = c.getBoundingClientRect();
@@ -3130,37 +3143,36 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 if (visible > bestScore) {
                     bestScore = visible;
                     const ref = c.dataset.quranRef;
-                    if (domIdx < blocks.length && blocks[domIdx].ref === ref) {
-                        bestIdx = domIdx;
-                    } else {
-                        let occ = 0;
-                        for (let k = 0; k < domIdx; k++) {
-                            if (containers[k].dataset.quranRef === ref) occ++;
-                        }
-                        let blockOcc = 0;
-                        let matched = -1;
-                        for (let bIdx = 0; bIdx < blocks.length; bIdx++) {
-                            if (blocks[bIdx].ref === ref) {
-                                if (blockOcc === occ) {
-                                    matched = bIdx;
-                                    break;
-                                }
-                                blockOcc++;
-                            }
-                        }
-                        bestIdx = matched >= 0 ? matched : Math.min(domIdx, blocks.length - 1);
+                    let occ = 0;
+                    for (let k = 0; k < domIdx; k++) {
+                        if (containers[k].dataset.quranRef === ref) occ++;
                     }
+                    let blockOcc = 0;
+                    let matched = -1;
+                    for (let bIdx = 0; bIdx < blocks.length; bIdx++) {
+                        if (blocks[bIdx].ref === ref) {
+                            if (blockOcc === occ) {
+                                matched = bIdx;
+                                break;
+                            }
+                            blockOcc++;
+                        }
+                    }
+                    bestIdx = matched >= 0 ? matched : (index._activeIdx ?? 0);
                 }
             });
-            return bestIdx;
+            return bestIdx >= 0 ? bestIdx : (index._activeIdx ?? 0);
         };
 
         const onNoteScroll = () => {
             if (index._scrollLocked || isWheelUserScrolling || isPointerDown || bufferNavTimer) return;
+            if (index.classList.contains('quran-index-open')) return;
             const idx = findActiveIdx();
             if (idx !== index._activeIdx) {
                 index._activeIdx = idx;
-                wheelScroll.scrollTo({ top: idx * itemHeight, behavior: 'smooth' });
+                isProgrammaticScroll = true;
+                wheelScroll.scrollTo({ top: idx * itemHeight, behavior: 'instant' });
+                setTimeout(() => { isProgrammaticScroll = false; }, 50);
                 updateWheelVisuals(idx);
             }
         };

@@ -627,6 +627,7 @@ body:not(.theme-light) .quran-v4-mode .quran-word-v4 {
     height: 100%;
     overflow-y: scroll;
     scroll-snap-type: y mandatory;
+    scroll-snap-stop: normal;
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding: 84px 0;
