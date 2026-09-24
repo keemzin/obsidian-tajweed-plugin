@@ -1,5 +1,35 @@
-const { Plugin, PluginSettingTab, Setting, MarkdownView, requestUrl, Notice } = require('obsidian');
-const SURAHS = [{ number: 1, name: "Al-Faatiha", ayahs: 7 }, { number: 2, name: "Al-Baqara", ayahs: 286 }, { number: 3, name: "Aal-i-Imraan", ayahs: 200 }, { number: 4, name: "An-Nisaa", ayahs: 176 }, { number: 5, name: "Al-Maaida", ayahs: 120 }, { number: 6, name: "Al-An'aam", ayahs: 165 }, { number: 7, name: "Al-A'raaf", ayahs: 206 }, { number: 8, name: "Al-Anfaal", ayahs: 75 }, { number: 9, name: "At-Tawba", ayahs: 129 }, { number: 10, name: "Yunus", ayahs: 109 }, { number: 11, name: "Hud", ayahs: 123 }, { number: 12, name: "Yusuf", ayahs: 111 }, { number: 13, name: "Ar-Ra'd", ayahs: 43 }, { number: 14, name: "Ibrahim", ayahs: 52 }, { number: 15, name: "Al-Hijr", ayahs: 99 }, { number: 16, name: "An-Nahl", ayahs: 128 }, { number: 17, name: "Al-Israa", ayahs: 111 }, { number: 18, name: "Al-Kahf", ayahs: 110 }, { number: 19, name: "Maryam", ayahs: 98 }, { number: 20, name: "Taa-Haa", ayahs: 135 }, { number: 21, name: "Al-Anbiyaa", ayahs: 112 }, { number: 22, name: "Al-Hajj", ayahs: 78 }, { number: 23, name: "Al-Muminoon", ayahs: 118 }, { number: 24, name: "An-Noor", ayahs: 64 }, { number: 25, name: "Al-Furqaan", ayahs: 77 }, { number: 26, name: "Ash-Shu'araa", ayahs: 227 }, { number: 27, name: "An-Naml", ayahs: 93 }, { number: 28, name: "Al-Qasas", ayahs: 88 }, { number: 29, name: "Al-Ankaboot", ayahs: 69 }, { number: 30, name: "Ar-Room", ayahs: 60 }, { number: 31, name: "Luqman", ayahs: 34 }, { number: 32, name: "As-Sajda", ayahs: 30 }, { number: 33, name: "Al-Ahzaab", ayahs: 73 }, { number: 34, name: "Saba", ayahs: 54 }, { number: 35, name: "Faatir", ayahs: 45 }, { number: 36, name: "Yaseen", ayahs: 83 }, { number: 37, name: "As-Saaffaat", ayahs: 182 }, { number: 38, name: "Saad", ayahs: 88 }, { number: 39, name: "Az-Zumar", ayahs: 75 }, { number: 40, name: "Ghafir", ayahs: 85 }, { number: 41, name: "Fussilat", ayahs: 54 }, { number: 42, name: "Ash-Shura", ayahs: 53 }, { number: 43, name: "Az-Zukhruf", ayahs: 89 }, { number: 44, name: "Ad-Dukhaan", ayahs: 59 }, { number: 45, name: "Al-Jaathiya", ayahs: 37 }, { number: 46, name: "Al-Ahqaf", ayahs: 35 }, { number: 47, name: "Muhammad", ayahs: 38 }, { number: 48, name: "Al-Fath", ayahs: 29 }, { number: 49, name: "Al-Hujuraat", ayahs: 18 }, { number: 50, name: "Qaaf", ayahs: 45 }, { number: 51, name: "Adh-Dhaariyat", ayahs: 60 }, { number: 52, name: "At-Tur", ayahs: 49 }, { number: 53, name: "An-Najm", ayahs: 62 }, { number: 54, name: "Al-Qamar", ayahs: 55 }, { number: 55, name: "Ar-Rahmaan", ayahs: 78 }, { number: 56, name: "Al-Waaqia", ayahs: 96 }, { number: 57, name: "Al-Hadid", ayahs: 29 }, { number: 58, name: "Al-Mujaadila", ayahs: 22 }, { number: 59, name: "Al-Hashr", ayahs: 24 }, { number: 60, name: "Al-Mumtahana", ayahs: 13 }, { number: 61, name: "As-Saff", ayahs: 14 }, { number: 62, name: "Al-Jumu'a", ayahs: 11 }, { number: 63, name: "Al-Munaafiqoon", ayahs: 11 }, { number: 64, name: "At-Taghaabun", ayahs: 18 }, { number: 65, name: "At-Talaaq", ayahs: 12 }, { number: 66, name: "At-Tahrim", ayahs: 12 }, { number: 67, name: "Al-Mulk", ayahs: 30 }, { number: 68, name: "Al-Qalam", ayahs: 52 }, { number: 69, name: "Al-Haaqqa", ayahs: 52 }, { number: 70, name: "Al-Ma'aarij", ayahs: 44 }, { number: 71, name: "Nooh", ayahs: 28 }, { number: 72, name: "Al-Jinn", ayahs: 28 }, { number: 73, name: "Al-Muzzammil", ayahs: 20 }, { number: 74, name: "Al-Muddaththir", ayahs: 56 }, { number: 75, name: "Al-Qiyaama", ayahs: 40 }, { number: 76, name: "Al-Insaan", ayahs: 31 }, { number: 77, name: "Al-Mursalaat", ayahs: 50 }, { number: 78, name: "An-Naba", ayahs: 40 }, { number: 79, name: "An-Naazi'aat", ayahs: 46 }, { number: 80, name: "Abasa", ayahs: 42 }, { number: 81, name: "At-Takwir", ayahs: 29 }, { number: 82, name: "Al-Infitaar", ayahs: 19 }, { number: 83, name: "Al-Mutaffifin", ayahs: 36 }, { number: 84, name: "Al-Inshiqaaq", ayahs: 25 }, { number: 85, name: "Al-Burooj", ayahs: 22 }, { number: 86, name: "At-Taariq", ayahs: 17 }, { number: 87, name: "Al-A'laa", ayahs: 19 }, { number: 88, name: "Al-Ghaashiya", ayahs: 26 }, { number: 89, name: "Al-Fajr", ayahs: 30 }, { number: 90, name: "Al-Balad", ayahs: 20 }, { number: 91, name: "Ash-Shams", ayahs: 15 }, { number: 92, name: "Al-Lail", ayahs: 21 }, { number: 93, name: "Ad-Dhuhaa", ayahs: 11 }, { number: 94, name: "Ash-Sharh", ayahs: 8 }, { number: 95, name: "At-Tin", ayahs: 8 }, { number: 96, name: "Al-Alaq", ayahs: 19 }, { number: 97, name: "Al-Qadr", ayahs: 5 }, { number: 98, name: "Al-Bayyina", ayahs: 8 }, { number: 99, name: "Az-Zalzala", ayahs: 8 }, { number: 100, name: "Al-Aadiyaat", ayahs: 11 }, { number: 101, name: "Al-Qaari'a", ayahs: 11 }, { number: 102, name: "At-Takaathur", ayahs: 8 }, { number: 103, name: "Al-Asr", ayahs: 3 }, { number: 104, name: "Al-Humaza", ayahs: 9 }, { number: 105, name: "Al-Fil", ayahs: 5 }, { number: 106, name: "Quraish", ayahs: 4 }, { number: 107, name: "Al-Maa'un", ayahs: 7 }, { number: 108, name: "Al-Kawthar", ayahs: 3 }, { number: 109, name: "Al-Kaafiroon", ayahs: 6 }, { number: 110, name: "An-Nasr", ayahs: 3 }, { number: 111, name: "Al-Masad", ayahs: 5 }, { number: 112, name: "Al-Ikhlaas", ayahs: 4 }, { number: 113, name: "Al-Falaq", ayahs: 5 }, { number: 114, name: "An-Naas", ayahs: 6 }];
+const { Plugin, PluginSettingTab, Setting, MarkdownView, requestUrl, Notice, Modal } = require('obsidian');
+const SURAHS = [{"number":1,"name":"Al-Faatiha","arabic":"سُورَةُ ٱلْفَاتِحَةِ","ayahs":7,"type":"Meccan","translation":"The Opening"},{"number":2,"name":"Al-Baqara","arabic":"سُورَةُ البَقَرَةِ","ayahs":286,"type":"Medinan","translation":"The Cow"},{"number":3,"name":"Aal-i-Imraan","arabic":"سُورَةُ آلِ عِمۡرَانَ","ayahs":200,"type":"Medinan","translation":"The Family of Imraan"},{"number":4,"name":"An-Nisaa","arabic":"سُورَةُ النِّسَاءِ","ayahs":176,"type":"Medinan","translation":"The Women"},{"number":5,"name":"Al-Maaida","arabic":"سُورَةُ المَائـِدَةِ","ayahs":120,"type":"Medinan","translation":"The Table"},{"number":6,"name":"Al-An'aam","arabic":"سُورَةُ الأَنۡعَامِ","ayahs":165,"type":"Meccan","translation":"The Cattle"},{"number":7,"name":"Al-A'raaf","arabic":"سُورَةُ الأَعۡرَافِ","ayahs":206,"type":"Meccan","translation":"The Heights"},{"number":8,"name":"Al-Anfaal","arabic":"سُورَةُ الأَنفَالِ","ayahs":75,"type":"Medinan","translation":"The Spoils of War"},{"number":9,"name":"At-Tawba","arabic":"سُورَةُ التَّوۡبَةِ","ayahs":129,"type":"Medinan","translation":"The Repentance"},{"number":10,"name":"Yunus","arabic":"سُورَةُ يُونُسَ","ayahs":109,"type":"Meccan","translation":"Jonas"},{"number":11,"name":"Hud","arabic":"سُورَةُ هُودٍ","ayahs":123,"type":"Meccan","translation":"Hud"},{"number":12,"name":"Yusuf","arabic":"سُورَةُ يُوسُفَ","ayahs":111,"type":"Meccan","translation":"Joseph"},{"number":13,"name":"Ar-Ra'd","arabic":"سُورَةُ الرَّعۡدِ","ayahs":43,"type":"Medinan","translation":"The Thunder"},{"number":14,"name":"Ibrahim","arabic":"سُورَةُ إِبۡرَاهِيمَ","ayahs":52,"type":"Meccan","translation":"Abraham"},{"number":15,"name":"Al-Hijr","arabic":"سُورَةُ الحِجۡرِ","ayahs":99,"type":"Meccan","translation":"The Rock"},{"number":16,"name":"An-Nahl","arabic":"سُورَةُ النَّحۡلِ","ayahs":128,"type":"Meccan","translation":"The Bee"},{"number":17,"name":"Al-Israa","arabic":"سُورَةُ الإِسۡرَاءِ","ayahs":111,"type":"Meccan","translation":"The Night Journey"},{"number":18,"name":"Al-Kahf","arabic":"سُورَةُ الكَهۡفِ","ayahs":110,"type":"Meccan","translation":"The Cave"},{"number":19,"name":"Maryam","arabic":"سُورَةُ مَرۡيَمَ","ayahs":98,"type":"Meccan","translation":"Mary"},{"number":20,"name":"Taa-Haa","arabic":"سُورَةُ طه","ayahs":135,"type":"Meccan","translation":"Taa-Haa"},{"number":21,"name":"Al-Anbiyaa","arabic":"سُورَةُ الأَنبِيَاءِ","ayahs":112,"type":"Meccan","translation":"The Prophets"},{"number":22,"name":"Al-Hajj","arabic":"سُورَةُ الحَجِّ","ayahs":78,"type":"Medinan","translation":"The Pilgrimage"},{"number":23,"name":"Al-Muminoon","arabic":"سُورَةُ المُؤۡمِنُونَ","ayahs":118,"type":"Meccan","translation":"The Believers"},{"number":24,"name":"An-Noor","arabic":"سُورَةُ النُّورِ","ayahs":64,"type":"Medinan","translation":"The Light"},{"number":25,"name":"Al-Furqaan","arabic":"سُورَةُ الفُرۡقَانِ","ayahs":77,"type":"Meccan","translation":"The Criterion"},{"number":26,"name":"Ash-Shu'araa","arabic":"سُورَةُ الشُّعَرَاءِ","ayahs":227,"type":"Meccan","translation":"The Poets"},{"number":27,"name":"An-Naml","arabic":"سُورَةُ النَّمۡلِ","ayahs":93,"type":"Meccan","translation":"The Ant"},{"number":28,"name":"Al-Qasas","arabic":"سُورَةُ القَصَصِ","ayahs":88,"type":"Meccan","translation":"The Stories"},{"number":29,"name":"Al-Ankaboot","arabic":"سُورَةُ العَنكَبُوتِ","ayahs":69,"type":"Meccan","translation":"The Spider"},{"number":30,"name":"Ar-Room","arabic":"سُورَةُ الرُّومِ","ayahs":60,"type":"Meccan","translation":"The Romans"},{"number":31,"name":"Luqman","arabic":"سُورَةُ لُقۡمَانَ","ayahs":34,"type":"Meccan","translation":"Luqman"},{"number":32,"name":"As-Sajda","arabic":"سُورَةُ السَّجۡدَةِ","ayahs":30,"type":"Meccan","translation":"The Prostration"},{"number":33,"name":"Al-Ahzaab","arabic":"سُورَةُ الأَحۡزَابِ","ayahs":73,"type":"Medinan","translation":"The Clans"},{"number":34,"name":"Saba","arabic":"سُورَةُ سَبَإٍ","ayahs":54,"type":"Meccan","translation":"Sheba"},{"number":35,"name":"Faatir","arabic":"سُورَةُ فَاطِرٍ","ayahs":45,"type":"Meccan","translation":"The Originator"},{"number":36,"name":"Yaseen","arabic":"سُورَةُ يسٓ","ayahs":83,"type":"Meccan","translation":"Yaseen"},{"number":37,"name":"As-Saaffaat","arabic":"سُورَةُ الصَّافَّاتِ","ayahs":182,"type":"Meccan","translation":"Those drawn up in Ranks"},{"number":38,"name":"Saad","arabic":"سُورَةُ صٓ","ayahs":88,"type":"Meccan","translation":"The letter Saad"},{"number":39,"name":"Az-Zumar","arabic":"سُورَةُ الزُّمَرِ","ayahs":75,"type":"Meccan","translation":"The Groups"},{"number":40,"name":"Ghafir","arabic":"سُورَةُ غَافِرٍ","ayahs":85,"type":"Meccan","translation":"The Forgiver"},{"number":41,"name":"Fussilat","arabic":"سُورَةُ فُصِّلَتۡ","ayahs":54,"type":"Meccan","translation":"Explained in detail"},{"number":42,"name":"Ash-Shura","arabic":"سُورَةُ الشُّورَىٰ","ayahs":53,"type":"Meccan","translation":"Consultation"},{"number":43,"name":"Az-Zukhruf","arabic":"سُورَةُ الزُّخۡرُفِ","ayahs":89,"type":"Meccan","translation":"Ornaments of gold"},{"number":44,"name":"Ad-Dukhaan","arabic":"سُورَةُ الدُّخَانِ","ayahs":59,"type":"Meccan","translation":"The Smoke"},{"number":45,"name":"Al-Jaathiya","arabic":"سُورَةُ الجَاثِيَةِ","ayahs":37,"type":"Meccan","translation":"Crouching"},{"number":46,"name":"Al-Ahqaf","arabic":"سُورَةُ الأَحۡقَافِ","ayahs":35,"type":"Meccan","translation":"The Dunes"},{"number":47,"name":"Muhammad","arabic":"سُورَةُ مُحَمَّدٍ","ayahs":38,"type":"Medinan","translation":"Muhammad"},{"number":48,"name":"Al-Fath","arabic":"سُورَةُ الفَتۡحِ","ayahs":29,"type":"Medinan","translation":"The Victory"},{"number":49,"name":"Al-Hujuraat","arabic":"سُورَةُ الحُجُرَاتِ","ayahs":18,"type":"Medinan","translation":"The Inner Apartments"},{"number":50,"name":"Qaaf","arabic":"سُورَةُ قٓ","ayahs":45,"type":"Meccan","translation":"The letter Qaaf"},{"number":51,"name":"Adh-Dhaariyat","arabic":"سُورَةُ الذَّارِيَاتِ","ayahs":60,"type":"Meccan","translation":"The Winnowing Winds"},{"number":52,"name":"At-Tur","arabic":"سُورَةُ الطُّورِ","ayahs":49,"type":"Meccan","translation":"The Mount"},{"number":53,"name":"An-Najm","arabic":"سُورَةُ النَّجۡمِ","ayahs":62,"type":"Meccan","translation":"The Star"},{"number":54,"name":"Al-Qamar","arabic":"سُورَةُ القَمَرِ","ayahs":55,"type":"Meccan","translation":"The Moon"},{"number":55,"name":"Ar-Rahmaan","arabic":"سُورَةُ الرَّحۡمَٰن","ayahs":78,"type":"Medinan","translation":"The Beneficent"},{"number":56,"name":"Al-Waaqia","arabic":"سُورَةُ الوَاقِعَةِ","ayahs":96,"type":"Meccan","translation":"The Inevitable"},{"number":57,"name":"Al-Hadid","arabic":"سُورَةُ الحَدِيدِ","ayahs":29,"type":"Medinan","translation":"The Iron"},{"number":58,"name":"Al-Mujaadila","arabic":"سُورَةُ المُجَادلَةِ","ayahs":22,"type":"Medinan","translation":"The Pleading Woman"},{"number":59,"name":"Al-Hashr","arabic":"سُورَةُ الحَشۡرِ","ayahs":24,"type":"Medinan","translation":"The Exile"},{"number":60,"name":"Al-Mumtahana","arabic":"سُورَةُ المُمۡتَحنَةِ","ayahs":13,"type":"Medinan","translation":"She that is to be examined"},{"number":61,"name":"As-Saff","arabic":"سُورَةُ الصَّفِّ","ayahs":14,"type":"Medinan","translation":"The Ranks"},{"number":62,"name":"Al-Jumu'a","arabic":"سُورَةُ الجُمُعَةِ","ayahs":11,"type":"Medinan","translation":"Friday"},{"number":63,"name":"Al-Munaafiqoon","arabic":"سُورَةُ المُنَافِقُونَ","ayahs":11,"type":"Medinan","translation":"The Hypocrites"},{"number":64,"name":"At-Taghaabun","arabic":"سُورَةُ التَّغَابُنِ","ayahs":18,"type":"Medinan","translation":"Mutual Disillusion"},{"number":65,"name":"At-Talaaq","arabic":"سُورَةُ الطَّلَاقِ","ayahs":12,"type":"Medinan","translation":"Divorce"},{"number":66,"name":"At-Tahrim","arabic":"سُورَةُ التَّحۡرِيمِ","ayahs":12,"type":"Medinan","translation":"The Prohibition"},{"number":67,"name":"Al-Mulk","arabic":"سُورَةُ المُلۡكِ","ayahs":30,"type":"Meccan","translation":"The Sovereignty"},{"number":68,"name":"Al-Qalam","arabic":"سُورَةُ القَلَمِ","ayahs":52,"type":"Meccan","translation":"The Pen"},{"number":69,"name":"Al-Haaqqa","arabic":"سُورَةُ الحَاقَّةِ","ayahs":52,"type":"Meccan","translation":"The Reality"},{"number":70,"name":"Al-Ma'aarij","arabic":"سُورَةُ المَعَارِجِ","ayahs":44,"type":"Meccan","translation":"The Ascending Stairways"},{"number":71,"name":"Nooh","arabic":"سُورَةُ نُوحٍ","ayahs":28,"type":"Meccan","translation":"Noah"},{"number":72,"name":"Al-Jinn","arabic":"سُورَةُ الجِنِّ","ayahs":28,"type":"Meccan","translation":"The Jinn"},{"number":73,"name":"Al-Muzzammil","arabic":"سُورَةُ المُزَّمِّلِ","ayahs":20,"type":"Meccan","translation":"The Enshrouded One"},{"number":74,"name":"Al-Muddaththir","arabic":"سُورَةُ المُدَّثِّرِ","ayahs":56,"type":"Meccan","translation":"The Cloaked One"},{"number":75,"name":"Al-Qiyaama","arabic":"سُورَةُ القِيَامَةِ","ayahs":40,"type":"Meccan","translation":"The Resurrection"},{"number":76,"name":"Al-Insaan","arabic":"سُورَةُ الإِنسَانِ","ayahs":31,"type":"Medinan","translation":"Man"},{"number":77,"name":"Al-Mursalaat","arabic":"سُورَةُ المُرۡسَلَاتِ","ayahs":50,"type":"Meccan","translation":"The Emissaries"},{"number":78,"name":"An-Naba","arabic":"سُورَةُ النَّبَإِ","ayahs":40,"type":"Meccan","translation":"The Announcement"},{"number":79,"name":"An-Naazi'aat","arabic":"سُورَةُ النَّازِعَاتِ","ayahs":46,"type":"Meccan","translation":"Those who drag forth"},{"number":80,"name":"Abasa","arabic":"سُورَةُ عَبَسَ","ayahs":42,"type":"Meccan","translation":"He frowned"},{"number":81,"name":"At-Takwir","arabic":"سُورَةُ التَّكۡوِيرِ","ayahs":29,"type":"Meccan","translation":"The Overthrowing"},{"number":82,"name":"Al-Infitaar","arabic":"سُورَةُ الانفِطَارِ","ayahs":19,"type":"Meccan","translation":"The Cleaving"},{"number":83,"name":"Al-Mutaffifin","arabic":"سُورَةُ المُطَفِّفِينَ","ayahs":36,"type":"Meccan","translation":"Defrauding"},{"number":84,"name":"Al-Inshiqaaq","arabic":"سُورَةُ الانشِقَاقِ","ayahs":25,"type":"Meccan","translation":"The Splitting Open"},{"number":85,"name":"Al-Burooj","arabic":"سُورَةُ البُرُوجِ","ayahs":22,"type":"Meccan","translation":"The Constellations"},{"number":86,"name":"At-Taariq","arabic":"سُورَةُ الطَّارِقِ","ayahs":17,"type":"Meccan","translation":"The Morning Star"},{"number":87,"name":"Al-A'laa","arabic":"سُورَةُ الأَعۡلَىٰ","ayahs":19,"type":"Meccan","translation":"The Most High"},{"number":88,"name":"Al-Ghaashiya","arabic":"سُورَةُ الغَاشِيَةِ","ayahs":26,"type":"Meccan","translation":"The Overwhelming"},{"number":89,"name":"Al-Fajr","arabic":"سُورَةُ الفَجۡرِ","ayahs":30,"type":"Meccan","translation":"The Dawn"},{"number":90,"name":"Al-Balad","arabic":"سُورَةُ البَلَدِ","ayahs":20,"type":"Meccan","translation":"The City"},{"number":91,"name":"Ash-Shams","arabic":"سُورَةُ الشَّمۡسِ","ayahs":15,"type":"Meccan","translation":"The Sun"},{"number":92,"name":"Al-Lail","arabic":"سُورَةُ اللَّيۡلِ","ayahs":21,"type":"Meccan","translation":"The Night"},{"number":93,"name":"Ad-Dhuhaa","arabic":"سُورَةُ الضُّحَىٰ","ayahs":11,"type":"Meccan","translation":"The Morning Hours"},{"number":94,"name":"Ash-Sharh","arabic":"سُورَةُ الشَّرۡحِ","ayahs":8,"type":"Meccan","translation":"The Consolation"},{"number":95,"name":"At-Tin","arabic":"سُورَةُ التِّينِ","ayahs":8,"type":"Meccan","translation":"The Fig"},{"number":96,"name":"Al-Alaq","arabic":"سُورَةُ العَلَقِ","ayahs":19,"type":"Meccan","translation":"The Clot"},{"number":97,"name":"Al-Qadr","arabic":"سُورَةُ القَدۡرِ","ayahs":5,"type":"Meccan","translation":"The Power, Fate"},{"number":98,"name":"Al-Bayyina","arabic":"سُورَةُ البَيِّنَةِ","ayahs":8,"type":"Medinan","translation":"The Evidence"},{"number":99,"name":"Az-Zalzala","arabic":"سُورَةُ الزَّلۡزَلَةِ","ayahs":8,"type":"Medinan","translation":"The Earthquake"},{"number":100,"name":"Al-Aadiyaat","arabic":"سُورَةُ العَادِيَاتِ","ayahs":11,"type":"Meccan","translation":"The Chargers"},{"number":101,"name":"Al-Qaari'a","arabic":"سُورَةُ القَارِعَةِ","ayahs":11,"type":"Meccan","translation":"The Calamity"},{"number":102,"name":"At-Takaathur","arabic":"سُورَةُ التَّكَاثُرِ","ayahs":8,"type":"Meccan","translation":"Competition"},{"number":103,"name":"Al-Asr","arabic":"سُورَةُ العَصۡرِ","ayahs":3,"type":"Meccan","translation":"The Declining Day, Epoch"},{"number":104,"name":"Al-Humaza","arabic":"سُورَةُ الهُمَزَةِ","ayahs":9,"type":"Meccan","translation":"The Traducer"},{"number":105,"name":"Al-Fil","arabic":"سُورَةُ الفِيلِ","ayahs":5,"type":"Meccan","translation":"The Elephant"},{"number":106,"name":"Quraish","arabic":"سُورَةُ قُرَيۡشٍ","ayahs":4,"type":"Meccan","translation":"Quraysh"},{"number":107,"name":"Al-Maa'un","arabic":"سُورَةُ المَاعُونِ","ayahs":7,"type":"Meccan","translation":"Almsgiving"},{"number":108,"name":"Al-Kawthar","arabic":"سُورَةُ الكَوۡثَرِ","ayahs":3,"type":"Meccan","translation":"Abundance"},{"number":109,"name":"Al-Kaafiroon","arabic":"سُورَةُ الكَافِرُونَ","ayahs":6,"type":"Meccan","translation":"The Disbelievers"},{"number":110,"name":"An-Nasr","arabic":"سُورَةُ النَّصۡرِ","ayahs":3,"type":"Medinan","translation":"Divine Support"},{"number":111,"name":"Al-Masad","arabic":"سُورَةُ المَسَدِ","ayahs":5,"type":"Meccan","translation":"The Palm Fibre"},{"number":112,"name":"Al-Ikhlaas","arabic":"سُورَةُ الإِخۡلَاصِ","ayahs":4,"type":"Meccan","translation":"Sincerity"},{"number":113,"name":"Al-Falaq","arabic":"سُورَةُ الفَلَقِ","ayahs":5,"type":"Meccan","translation":"The Dawn"},{"number":114,"name":"An-Naas","arabic":"سُورَةُ النَّاسِ","ayahs":6,"type":"Meccan","translation":"Mankind"}];
+
+const PRESET_PASSAGES = [
+    { label: "Ayat al-Kursi", surah: 2, startVerse: 255, endVerse: 255, badge: "Throne Verse" },
+    { label: "Last 2 of Al-Baqarah", surah: 2, startVerse: 285, endVerse: 286, badge: "Night Protection" },
+    { label: "First 10 of Al-Kahf", surah: 18, startVerse: 1, endVerse: 10, badge: "Friday Sunnah" },
+    { label: "Last 10 of Al-Kahf", surah: 18, startVerse: 101, endVerse: 110, badge: "Friday Sunnah" },
+    { label: "Surah As-Sajda", surah: 32, startVerse: 1, endVerse: 30, badge: "Night Sunnah" },
+    { label: "Surah Yaseen", surah: 36, startVerse: 1, endVerse: 83, badge: "Heart of Quran" },
+    { label: "Surah Ar-Rahman", surah: 55, startVerse: 1, endVerse: 78, badge: "Beauty of Quran" },
+    { label: "Surah Al-Waqi'ah", surah: 56, startVerse: 1, endVerse: 96, badge: "Abundance" },
+    { label: "Last 3 of Al-Hashr", surah: 59, startVerse: 22, endVerse: 24, badge: "Divine Names" },
+    { label: "Surah Al-Mulk", surah: 67, startVerse: 1, endVerse: 30, badge: "Grave Protection" },
+    { label: "Surah Al-Ikhlaas", surah: 112, startVerse: 1, endVerse: 4, badge: "1/3 of Quran" },
+    { label: "Surah Al-Falaq", surah: 113, startVerse: 1, endVerse: 5, badge: "Refuge from Evil" },
+    { label: "Surah An-Naas", surah: 114, startVerse: 1, endVerse: 6, badge: "Refuge from Whispers" }
+];
+
+function normalizeArabicText(text) {
+    if (!text) return '';
+    return text
+        .replace(/[\u064B-\u065F\u0670]/g, '')
+        .replace(/[\u0622\u0623\u0625\u0671]/g, '\u0627')
+        .replace(/\u0629/g, '\u0647')
+        .replace(/\u0649/g, '\u064A');
+}
+
+function normalizeEnglishText(text) {
+    if (!text) return '';
+    return text.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
 
 // Tajweed color mapping
 const TAJWEED_COLORS = {
@@ -253,11 +283,16 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             defaultPlaybackSpeed: 1.0,
             autoScrollAudio: true,
             showFloatingMiniPlayer: true,
-            showSideIndexWheel: true
+            showSideIndexWheel: true,
+            useRichSurahPicker: true,
+            starredSurahs: [1, 18, 32, 36, 55, 56, 67, 112, 113, 114]
         };
 
         // Load saved settings
         await this.loadSettings();
+
+        this._surahsData = null;
+        this.ensureSurahsData().catch(() => {});
 
         this._qpcV4Data = null;
         this.ensureQpcV4Data().catch(() => {});
@@ -330,6 +365,21 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 this.debounceRebuildIndex(250);
             }
         }));
+    }
+
+    onunload() {
+        clearTimeout(this._indexBuildTimer);
+        const existing = document.querySelector('.quran-page-index');
+        if (existing) {
+            if (existing._scrollListeners) existing._scrollListeners.forEach(({ el, fn }) => el.removeEventListener('scroll', fn));
+            if (existing._docListeners) existing._docListeners.forEach(({ type, fn }) => document.removeEventListener(type, fn));
+            if (existing._winListeners) existing._winListeners.forEach(({ type, fn }) => window.removeEventListener(type, fn));
+            if (typeof existing._clearBufferTimer === 'function') existing._clearBufferTimer();
+            clearTimeout(existing._scrollLockTimer);
+            clearTimeout(existing._resizeTimer);
+            if (existing._scrollRaf) cancelAnimationFrame(existing._scrollRaf);
+            existing.remove();
+        }
     }
 
     parseReciterFromSource(source) {
@@ -434,6 +484,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.settings.autoScrollAudio = saved.autoScrollAudio !== undefined ? saved.autoScrollAudio : true;
             this.settings.showFloatingMiniPlayer = saved.showFloatingMiniPlayer !== undefined ? saved.showFloatingMiniPlayer : true;
             this.settings.showSideIndexWheel = saved.showSideIndexWheel !== undefined ? saved.showSideIndexWheel : true;
+            this.settings.useRichSurahPicker = saved.useRichSurahPicker !== undefined ? saved.useRichSurahPicker : true;
+            this.settings.starredSurahs = Array.isArray(saved.starredSurahs) ? saved.starredSurahs : [1, 18, 32, 36, 55, 56, 67, 112, 113, 114];
         }
     }
 
@@ -462,7 +514,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             defaultPlaybackSpeed: this.settings.defaultPlaybackSpeed,
             autoScrollAudio: this.settings.autoScrollAudio,
             showFloatingMiniPlayer: this.settings.showFloatingMiniPlayer,
-            showSideIndexWheel: this.settings.showSideIndexWheel
+            showSideIndexWheel: this.settings.showSideIndexWheel,
+            useRichSurahPicker: this.settings.useRichSurahPicker,
+            starredSurahs: this.settings.starredSurahs
         });
     }
 
@@ -540,6 +594,49 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         })();
 
         return await this._qpcV4DataPromise;
+    }
+
+    async ensureSurahsData() {
+        if (this._surahsData) return this._surahsData;
+        const adapter = this.app.vault.adapter;
+        const localPath = `${this.getPluginDir()}/data/surahs.json`;
+        try {
+            if (await adapter.exists(localPath)) {
+                const raw = await adapter.read(localPath);
+                const parsed = JSON.parse(raw);
+                if (parsed && Array.isArray(parsed.data)) {
+                    this._surahsData = parsed.data;
+                    return this._surahsData;
+                }
+            }
+        } catch {}
+        return null;
+    }
+
+    getSurahMeta(surahNum) {
+        if (this._surahsData) {
+            const found = this._surahsData.find(s => s.number === surahNum);
+            if (found) {
+                return {
+                    ...found,
+                    arabic: found.name || ''
+                };
+            }
+        }
+        const s = SURAHS.find(x => x.number === surahNum);
+        return {
+            number: surahNum,
+            name: s ? (s.arabic || s.name) : `Surah ${surahNum}`,
+            arabic: s?.arabic || '',
+            englishName: s ? s.name : `Surah ${surahNum}`,
+            englishNameTranslation: s?.translation || '',
+            numberOfAyahs: s ? s.ayahs : 7,
+            revelationType: s?.type || (surahNum === 1 || surahNum > 2 ? 'Meccan' : 'Medinan')
+        };
+    }
+
+    openSurahPicker(container, renderEl, surah, startVerse, endVerse, initialMode = 'surah') {
+        new QuranSurahPickerModal(this.app, this, container, renderEl, { surah, startVerse, endVerse, initialMode }).open();
     }
 
     async ensureQulV4FontLoaded(page) {
@@ -630,6 +727,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         let w = 1;
         let rendered = 0;
         const wordNodes = [];
+        const parsedVerseWords = this.getTajweedWords(verse.text);
 
         while (true) {
             const key = `${surah}:${ayah}:${w}`;
@@ -652,7 +750,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             const isAyahMarker = !this._qpcV4Data[nextKey];
             if (!isAyahMarker) {
                 const currentPos = w;
-                const rules = this.getTajweedRulesForWord(verse.text, currentPos);
+                const rules = parsedVerseWords[currentPos - 1]?.rules || [];
                 this.attachWordInteractivity(wordSpan, surah, ayah, currentPos, rules, null);
             }
 
@@ -2196,73 +2294,94 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
             const navBar = container.createDiv({ cls: 'quran-nav-bar' });
 
-            const surahSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
-            const surahInfo = SURAHS.map(s => ({ ...s }));
-            surahInfo.forEach(s => {
-                const opt = surahSelect.createEl('option');
-                opt.value = s.number;
-                opt.textContent = `${s.number}. ${s.name}`;
-                if (s.number === surah) opt.selected = true;
-            });
+            if (this.settings.useRichSurahPicker !== false) {
+                const pickerBtn = navBar.createEl('button', { cls: 'quran-nav-picker-btn' });
+                pickerBtn.type = 'button';
+                pickerBtn.title = 'Choose Surah & Verse range';
 
-            const fromSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
-            const toSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
+                const sInfo = SURAHS.find(s => s.number === surah) || SURAHS[0];
 
-            const currentSurah = SURAHS.find(s => s.number === surah) || surahInfo[0];
-            const totalAyahs = currentSurah.ayahs;
+                pickerBtn.innerHTML = `
+                    <span class="quran-picker-btn-icon"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+                    <span class="quran-picker-btn-name">${surah}. ${sInfo.name}</span>
+                    <span class="quran-picker-btn-verses">${startVerse}–${endVerse}</span>
+                    <svg class="quran-picker-btn-chevron" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="6 9 12 15 18 9"/></svg>
+                `;
 
-            const updateVerseOptions = (fromVal) => {
-                toSelect.innerHTML = '';
-                const start = fromVal || 1;
-                for (let i = start; i <= totalAyahs; i++) {
-                    const opt = toSelect.createEl('option');
+                pickerBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const isVerseClick = e.target.closest('.quran-picker-btn-verses') !== null;
+                    this.openSurahPicker(container, el, surah, startVerse, endVerse, isVerseClick ? 'range' : 'surah');
+                };
+            } else {
+                const surahSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
+                const surahInfo = SURAHS.map(s => ({ ...s }));
+                surahInfo.forEach(s => {
+                    const opt = surahSelect.createEl('option');
+                    opt.value = s.number;
+                    opt.textContent = `${s.number}. ${s.name}`;
+                    if (s.number === surah) opt.selected = true;
+                });
+
+                const fromSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
+                const toSelect = navBar.createEl('select', { cls: 'quran-nav-select' });
+
+                const currentSurah = SURAHS.find(s => s.number === surah) || surahInfo[0];
+                const totalAyahs = currentSurah.ayahs;
+
+                const updateVerseOptions = (fromVal) => {
+                    toSelect.innerHTML = '';
+                    const start = fromVal || 1;
+                    for (let i = start; i <= totalAyahs; i++) {
+                        const opt = toSelect.createEl('option');
+                        opt.value = i;
+                        opt.textContent = i;
+                        if (i === endVerse) opt.selected = true;
+                    }
+                };
+
+                for (let i = 1; i <= totalAyahs; i++) {
+                    const opt = fromSelect.createEl('option');
                     opt.value = i;
                     opt.textContent = i;
-                    if (i === endVerse) opt.selected = true;
+                    if (i === startVerse) opt.selected = true;
                 }
-            };
+                updateVerseOptions(startVerse);
 
-            for (let i = 1; i <= totalAyahs; i++) {
-                const opt = fromSelect.createEl('option');
-                opt.value = i;
-                opt.textContent = i;
-                if (i === startVerse) opt.selected = true;
+                surahSelect.onchange = async () => {
+                    const newSurah = parseInt(surahSelect.value);
+                    const s = SURAHS.find(x => x.number === newSurah);
+                    if (!s) return;
+                    const st = container._quranState || {};
+                    const newRef = `${newSurah}:1-${Math.min(s.ayahs, 10)}`;
+                    await this.updateSourceRange(container, newRef);
+                    el.innerHTML = '';
+                    await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
+                };
+
+                fromSelect.onchange = async () => {
+                    const f = parseInt(fromSelect.value);
+                    const t = Math.max(f, parseInt(toSelect.value));
+                    toSelect.value = t;
+                    updateVerseOptions(f);
+                    const st = container._quranState || {};
+                    const newRef = `${surah}:${f}-${t}`;
+                    await this.updateSourceRange(container, newRef);
+                    el.innerHTML = '';
+                    await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
+                };
+
+                toSelect.onchange = async () => {
+                    const f = parseInt(fromSelect.value);
+                    const t = Math.max(f, parseInt(toSelect.value));
+                    toSelect.value = t;
+                    const st = container._quranState || {};
+                    const newRef = `${surah}:${f}-${t}`;
+                    await this.updateSourceRange(container, newRef);
+                    el.innerHTML = '';
+                    await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
+                };
             }
-            updateVerseOptions(startVerse);
-
-            surahSelect.onchange = async () => {
-                const newSurah = parseInt(surahSelect.value);
-                const s = SURAHS.find(x => x.number === newSurah);
-                if (!s) return;
-                const st = container._quranState || {};
-                const newRef = `${newSurah}:1-${Math.min(s.ayahs, 10)}`;
-                await this.updateSourceRange(container, newRef);
-                el.innerHTML = '';
-                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
-            };
-
-            fromSelect.onchange = async () => {
-                const f = parseInt(fromSelect.value);
-                const t = Math.max(f, parseInt(toSelect.value));
-                toSelect.value = t;
-                updateVerseOptions(f);
-                const st = container._quranState || {};
-                const newRef = `${surah}:${f}-${t}`;
-                await this.updateSourceRange(container, newRef);
-                el.innerHTML = '';
-                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
-            };
-
-            toSelect.onchange = async () => {
-                const f = parseInt(fromSelect.value);
-                const t = Math.max(f, parseInt(toSelect.value));
-                toSelect.value = t;
-                const st = container._quranState || {};
-                const newRef = `${surah}:${f}-${t}`;
-                await this.updateSourceRange(container, newRef);
-                el.innerHTML = '';
-                await this.renderQuranWithTajweed(newRef, el, false, st.reciter || reciter, st.audioEnabled !== undefined ? st.audioEnabled : audioEnabled, st.translationEnabled !== undefined ? st.translationEnabled : translationEnabled, st.transliterationEnabled !== undefined ? st.transliterationEnabled : transliterationEnabled, st.ctx, st.customLabel);
-            };
 
             const transInfo = TRANSLATION_VERSIONS.find(t => t.id === this.settings.translationVersion) || TRANSLATION_VERSIONS[0];
             const arabicCacheKey = `quran-surah-${surah}`;
@@ -2434,10 +2553,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 });
             }
 
-            for (let a = startVerse; a <= endVerse; a++) {
-                this.getWbwData(surah, a).catch(() => {});
-            }
-
             container.dataset.quranRef = `${surah}:${startVerse}-${endVerse}`;
             container.dataset.quranLabel = customLabel || surahName;
             container.dataset.quranVerses = `${startVerse}–${endVerse}`;
@@ -2513,6 +2628,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
     }
 
     async buildIndexFromFile() {
+        if (!this.settings.showSideIndexWheel) {
+            const existing = document.querySelector('.quran-page-index');
+            if (existing) this.renderIndexFromBlocks([]);
+            return;
+        }
         const file = this.getActiveNoteFile();
         if (!file || file.extension !== 'md') return;
 
@@ -2570,6 +2690,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }
 
         const existing = document.querySelector('.quran-page-index');
+        if (existing && existing._blocks && existing._blocks.length === blocks.length) {
+            const isSame = blocks.every((b, i) => {
+                const eb = existing._blocks[i];
+                return eb && eb.ref === b.ref && eb.label === b.label && eb.verses === b.verses && eb.line === b.line;
+            });
+            if (isSame) return;
+        }
         const wasOpen = existing ? existing.classList.contains('quran-index-open') : false;
         const prevIdx = existing?._activeIdx ?? 0;
 
@@ -2586,6 +2713,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             existing._clearBufferTimer();
         }
         clearTimeout(existing?._scrollLockTimer);
+        clearTimeout(existing?._resizeTimer);
+        if (existing?._scrollRaf) cancelAnimationFrame(existing._scrollRaf);
 
         if (blocks.length < 1) {
             if (existing) existing.remove();
@@ -3164,17 +3293,41 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             return bestIdx >= 0 ? bestIdx : (index._activeIdx ?? 0);
         };
 
+        let scrollRaf = null;
+        let isResizing = false;
+        let resizeTimer = null;
+
+        const onResize = () => {
+            isResizing = true;
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                isResizing = false;
+                onNoteScroll();
+            }, 120);
+        };
+        window.addEventListener('resize', onResize, { passive: true });
+        index._winListeners.push({ type: 'resize', fn: onResize });
+        index._resizeTimer = resizeTimer;
+
         const onNoteScroll = () => {
-            if (index._scrollLocked || isWheelUserScrolling || isPointerDown || bufferNavTimer) return;
+            if (isResizing || index._scrollLocked || isWheelUserScrolling || isPointerDown || bufferNavTimer) return;
             if (index.classList.contains('quran-index-open')) return;
-            const idx = findActiveIdx();
-            if (idx !== index._activeIdx) {
-                index._activeIdx = idx;
-                isProgrammaticScroll = true;
-                wheelScroll.scrollTo({ top: idx * itemHeight, behavior: 'instant' });
-                setTimeout(() => { isProgrammaticScroll = false; }, 50);
-                updateWheelVisuals(idx);
-            }
+            if (scrollRaf) return;
+            scrollRaf = requestAnimationFrame(() => {
+                scrollRaf = null;
+                index._scrollRaf = null;
+                if (isResizing || index._scrollLocked || isWheelUserScrolling || isPointerDown || bufferNavTimer) return;
+                if (index.classList.contains('quran-index-open')) return;
+                const idx = findActiveIdx();
+                if (idx !== index._activeIdx) {
+                    index._activeIdx = idx;
+                    isProgrammaticScroll = true;
+                    wheelScroll.scrollTo({ top: idx * itemHeight, behavior: 'instant' });
+                    setTimeout(() => { isProgrammaticScroll = false; }, 50);
+                    updateWheelVisuals(idx);
+                }
+            });
+            index._scrollRaf = scrollRaf;
         };
 
         const addScrollListener = (target) => {
@@ -3184,7 +3337,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
         addScrollListener(window);
         const seen = new Set([window]);
-        document.querySelectorAll('.markdown-preview-view, .cm-scroller, .view-content').forEach(el => {
+        const activeLeafScrollers = document.querySelectorAll('.workspace-leaf.mod-active .markdown-preview-view, .workspace-leaf.mod-active .cm-scroller, .workspace-leaf.mod-active .view-content');
+        const targetScrollers = activeLeafScrollers.length > 0
+            ? activeLeafScrollers
+            : document.querySelectorAll('.markdown-preview-view, .cm-scroller');
+        targetScrollers.forEach(el => {
             if (!seen.has(el)) { seen.add(el); addScrollListener(el); }
         });
 
@@ -3837,6 +3994,18 @@ class QuranTajweedSettingTab extends PluginSettingTab {
         containerEl.createEl('h3', { text: 'Navigation & Sidebar' });
 
         new Setting(containerEl)
+            .setName('Rich Surah & Range Picker')
+            .setDesc('Use modern modal picker with search, presets, and verse range controls instead of basic HTML dropdowns.')
+            .addToggle((toggle) => {
+                toggle.setValue(this.plugin.settings.useRichSurahPicker !== false);
+                toggle.onChange(async (value) => {
+                    this.plugin.settings.useRichSurahPicker = value;
+                    await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
+                });
+            });
+
+        new Setting(containerEl)
             .setName('Surah Navigation Wheel')
             .setDesc('Display floating 3D navigation wheel dock on the side of notes containing Quran blocks.')
             .addToggle((toggle) => {
@@ -3899,5 +4068,488 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                <a href="https://islamic.app" target="_blank">Islamic.app</a> | 
                Audio: <a href="https://quran.com" target="_blank">Quran.com CDN</a></p>
         `;
+    }
+}
+
+class QuranSurahPickerModal extends Modal {
+    constructor(app, plugin, container, renderEl, initialData = {}) {
+        super(app);
+        this.plugin = plugin;
+        this.container = container;
+        this.renderEl = renderEl;
+        this.currentSurah = initialData.surah || 1;
+        this.currentStartVerse = initialData.startVerse || 1;
+        this.currentEndVerse = initialData.endVerse || 7;
+        this.viewMode = initialData.initialMode === 'range' ? 'range' : 'surah';
+        this.selectedSurah = this.currentSurah;
+        this.selectedStartVerse = this.currentStartVerse;
+        this.selectedEndVerse = this.currentEndVerse;
+        this.activeTab = 'all';
+        this.searchQuery = '';
+    }
+
+    onOpen() {
+        this.modalEl.addClass('quran-surah-picker-modal');
+        this.renderContent();
+    }
+
+    onClose() {
+        this.contentEl.empty();
+    }
+
+    renderContent() {
+        this.contentEl.empty();
+        this.contentEl.addClass('quran-picker-content');
+        this.contentEl.createDiv({ cls: 'quran-picker-drag-handle' });
+
+        if (this.viewMode === 'range') {
+            this.renderRangeView();
+        } else {
+            this.renderListView();
+        }
+    }
+
+    renderListView() {
+        const header = this.contentEl.createDiv({ cls: 'quran-picker-header' });
+        const titleRow = header.createDiv({ cls: 'quran-picker-title-row' });
+        titleRow.createEl('h3', { text: 'Select Surah & Verses' });
+
+        const closeBtn = titleRow.createEl('button', { cls: 'quran-picker-close-btn' });
+        closeBtn.type = 'button';
+        closeBtn.title = 'Close';
+        closeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        closeBtn.onclick = () => this.close();
+
+        const searchContainer = header.createDiv({ cls: 'quran-picker-search-container' });
+        const searchIcon = searchContainer.createSpan({ cls: 'quran-picker-search-icon' });
+        searchIcon.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+
+        const searchInput = searchContainer.createEl('input', { cls: 'quran-picker-search-input' });
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search by name, number, meaning, or passage...';
+        searchInput.value = this.searchQuery;
+
+        const clearBtn = searchContainer.createEl('button', { cls: 'quran-picker-search-clear' });
+        clearBtn.type = 'button';
+        clearBtn.title = 'Clear search';
+        clearBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+        clearBtn.style.display = this.searchQuery ? 'inline-flex' : 'none';
+
+        clearBtn.onclick = () => {
+            this.searchQuery = '';
+            searchInput.value = '';
+            clearBtn.style.display = 'none';
+            this.updateList();
+            searchInput.focus();
+        };
+
+        searchInput.oninput = () => {
+            this.searchQuery = searchInput.value;
+            clearBtn.style.display = this.searchQuery ? 'inline-flex' : 'none';
+            this.updateList();
+        };
+
+        searchInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const directApplyBtn = this.listContainer?.querySelector('.quran-picker-direct-match .quran-picker-apply-chip');
+                if (directApplyBtn) {
+                    directApplyBtn.click();
+                    return;
+                }
+                const firstCard = this.listContainer?.querySelector('.quran-picker-passage-card');
+                if (firstCard && this.activeTab === 'passages') {
+                    firstCard.click();
+                    return;
+                }
+                const firstSurah = this.listContainer?.querySelector('.quran-picker-surah-item');
+                if (firstSurah) {
+                    firstSurah.click();
+                    return;
+                }
+            }
+        };
+
+        const tabsContainer = header.createDiv({ cls: 'quran-picker-tabs' });
+        const tabs = [
+            { id: 'all', label: 'All (114)' },
+            { id: 'starred', label: `Starred (${(this.plugin?.settings?.starredSurahs || []).length})` },
+            { id: 'passages', label: 'Preset Passages' },
+            { id: 'meccan', label: 'Meccan' },
+            { id: 'medinan', label: 'Medinan' }
+        ];
+
+        tabs.forEach(t => {
+            const tabBtn = tabsContainer.createEl('button', {
+                cls: `quran-picker-tab${this.activeTab === t.id ? ' is-active' : ''}`,
+                text: t.label
+            });
+            tabBtn.type = 'button';
+            tabBtn.onclick = () => {
+                if (this.activeTab === t.id) return;
+                this.activeTab = t.id;
+                tabsContainer.querySelectorAll('.quran-picker-tab').forEach(b => b.classList.remove('is-active'));
+                tabBtn.classList.add('is-active');
+                this.updateList();
+            };
+        });
+
+        this.listContainer = this.contentEl.createDiv({ cls: 'quran-picker-list-container' });
+        this.updateList();
+
+        setTimeout(() => {
+            if (this.viewMode === 'surah') {
+                searchInput.focus();
+                if (!this.searchQuery) {
+                    const currentEl = this.listContainer.querySelector('.quran-picker-surah-item.is-current');
+                    if (currentEl) {
+                        currentEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    }
+                }
+            }
+        }, 50);
+    }
+
+    updateList() {
+        if (!this.listContainer) return;
+        this.listContainer.empty();
+        this.listContainer.scrollTop = 0;
+
+        const q = this.searchQuery.trim();
+        const normQuery = normalizeEnglishText(q);
+        const normArabicQuery = normalizeArabicText(q);
+
+        const refMatch = q.match(/^(\d{1,3})(?:\s*[:,\-\.]\s*(\d{1,3}))?(?:\s*[-–]\s*(\d{1,3}))?$/);
+        let hasDirectMatch = false;
+        if (refMatch) {
+            const sNum = parseInt(refMatch[1]);
+            if (sNum >= 1 && sNum <= 114) {
+                hasDirectMatch = true;
+                const sMeta = this.plugin.getSurahMeta(sNum);
+                const totalAyahs = sMeta.numberOfAyahs || 7;
+                const sStart = refMatch[2] ? Math.min(totalAyahs, Math.max(1, parseInt(refMatch[2]))) : 1;
+                const sEnd = refMatch[3] ? Math.min(totalAyahs, Math.max(sStart, parseInt(refMatch[3]))) : (refMatch[2] ? sStart : Math.min(totalAyahs, 10));
+
+                const directCard = this.listContainer.createDiv({ cls: 'quran-picker-passage-card quran-picker-direct-match' });
+                const dInfo = directCard.createDiv({ cls: 'quran-passage-info' });
+                dInfo.createDiv({ cls: 'quran-passage-title', text: `${sMeta.englishName} (${sNum}:${sStart}${sStart !== sEnd ? '–' + sEnd : ''})` });
+                dInfo.createDiv({ cls: 'quran-passage-meta', text: `Direct match • ${sEnd - sStart + 1} Ayah(s)` });
+
+                directCard.createSpan({ cls: 'quran-passage-badge', text: 'Direct Reference' });
+                const applyBtn = directCard.createEl('button', { cls: 'quran-picker-apply-chip', text: 'Apply' });
+                applyBtn.type = 'button';
+                applyBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.applyRange(sNum, sStart, sEnd);
+                };
+                directCard.onclick = () => {
+                    this.openRangeForSurah(sNum, sStart, sEnd);
+                };
+            }
+        }
+
+        const showPassages = (this.activeTab === 'passages') || (normQuery.length >= 2);
+        let matchedPassages = [];
+        if (showPassages) {
+            matchedPassages = PRESET_PASSAGES.filter(p => {
+                if (this.activeTab === 'passages' && !q) return true;
+                const sInfo = SURAHS.find(s => s.number === p.surah);
+                const sName = sInfo ? normalizeEnglishText(sInfo.name) : '';
+                const pLabel = normalizeEnglishText(p.label);
+                const pBadge = normalizeEnglishText(p.badge);
+                return pLabel.includes(normQuery) || pBadge.includes(normQuery) || sName.includes(normQuery) || `${p.surah}:${p.startVerse}`.includes(q);
+            });
+
+            if (matchedPassages.length > 0) {
+                const pSection = this.listContainer.createDiv({ cls: 'quran-picker-section' });
+                pSection.createDiv({ cls: 'quran-picker-section-title', text: 'Preset Passages' });
+                const grid = pSection.createDiv({ cls: 'quran-picker-passages-grid' });
+                matchedPassages.forEach(p => {
+                    const sMeta = this.plugin.getSurahMeta(p.surah);
+                    const card = grid.createDiv({ cls: 'quran-picker-passage-card' });
+                    const info = card.createDiv({ cls: 'quran-passage-info' });
+                    info.createDiv({ cls: 'quran-passage-title', text: p.label });
+                    info.createDiv({ cls: 'quran-passage-meta', text: `${sMeta.englishName} ${p.surah}:${p.startVerse}${p.startVerse !== p.endVerse ? '–' + p.endVerse : ''}` });
+                    if (p.badge) {
+                        card.createSpan({ cls: 'quran-passage-badge', text: p.badge });
+                    }
+                    const applyBtn = card.createEl('button', { cls: 'quran-picker-apply-chip', text: 'Apply' });
+                    applyBtn.type = 'button';
+                    applyBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        this.applyRange(p.surah, p.startVerse, p.endVerse);
+                    };
+                    card.onclick = () => {
+                        this.openRangeForSurah(p.surah, p.startVerse, p.endVerse);
+                    };
+                });
+            }
+        }
+
+        let filteredSurahs = [];
+        if (this.activeTab !== 'passages') {
+            const starredSet = new Set(this.plugin?.settings?.starredSurahs || []);
+            filteredSurahs = SURAHS.filter(s => {
+                const meta = this.plugin.getSurahMeta(s.number);
+                if (this.activeTab === 'starred' && !starredSet.has(s.number)) return false;
+                if (this.activeTab === 'meccan' && meta.revelationType !== 'Meccan') return false;
+                if (this.activeTab === 'medinan' && meta.revelationType !== 'Medinan') return false;
+
+                if (!q) return true;
+
+                if (s.number.toString() === q) return true;
+                if (normalizeEnglishText(s.name).includes(normQuery)) return true;
+                if (meta.englishName && normalizeEnglishText(meta.englishName).includes(normQuery)) return true;
+                if (meta.englishNameTranslation && normalizeEnglishText(meta.englishNameTranslation).includes(normQuery)) return true;
+                if (meta.name && normalizeArabicText(meta.name).includes(normArabicQuery)) return true;
+                return false;
+            });
+
+            if (filteredSurahs.length > 0) {
+                const section = this.listContainer.createDiv({ cls: 'quran-picker-section' });
+                section.createDiv({ cls: 'quran-picker-section-title', text: `Surahs (${filteredSurahs.length})` });
+                const list = section.createDiv({ cls: 'quran-picker-surah-list' });
+
+                filteredSurahs.forEach(s => {
+                    const meta = this.plugin.getSurahMeta(s.number);
+                    const isCurrent = (s.number === this.currentSurah);
+                    const item = list.createDiv({ cls: `quran-picker-surah-item${isCurrent ? ' is-current' : ''}` });
+
+                    const left = item.createDiv({ cls: 'quran-picker-item-left' });
+                    left.createSpan({ cls: 'quran-picker-item-num', text: String(s.number) });
+
+                    const details = left.createDiv({ cls: 'quran-picker-item-details' });
+                    const titleRow = details.createDiv({ cls: 'quran-picker-item-title-row' });
+                    titleRow.createSpan({ cls: 'quran-picker-item-name', text: meta.englishName || s.name });
+                    if (meta.englishNameTranslation) {
+                        titleRow.createSpan({ cls: 'quran-picker-item-trans', text: `(${meta.englishNameTranslation})` });
+                    }
+
+                    const subText = `${meta.revelationType || ''} • ${meta.numberOfAyahs || s.ayahs} Ayahs`;
+                    details.createDiv({ cls: 'quran-picker-item-sub', text: subText });
+
+                    const right = item.createDiv({ cls: 'quran-picker-item-right' });
+                    const cleanArabic = meta.name ? meta.name.replace(/^سُورَةُ\s*/, '') : '';
+                    if (cleanArabic) {
+                        right.createSpan({ cls: 'quran-picker-item-arabic', text: cleanArabic });
+                    }
+
+                    const isStarred = starredSet.has(s.number);
+                    const starBtn = right.createEl('button', {
+                        cls: `quran-picker-star-btn${isStarred ? ' is-starred' : ''}`,
+                        title: isStarred ? 'Unstar surah' : 'Star surah'
+                    });
+                    starBtn.type = 'button';
+                    starBtn.innerHTML = isStarred
+                        ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'
+                        : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+
+                    starBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        if (!this.plugin.settings.starredSurahs) this.plugin.settings.starredSurahs = [];
+                        const idx = this.plugin.settings.starredSurahs.indexOf(s.number);
+                        if (idx >= 0) {
+                            this.plugin.settings.starredSurahs.splice(idx, 1);
+                        } else {
+                            this.plugin.settings.starredSurahs.push(s.number);
+                            this.plugin.settings.starredSurahs.sort((a, b) => a - b);
+                        }
+                        await this.plugin.saveSettings();
+                        this.updateList();
+                    };
+
+                    item.onclick = () => {
+                        if (isCurrent) {
+                            this.openRangeForSurah(s.number, this.currentStartVerse, this.currentEndVerse);
+                        } else {
+                            const defaultEnd = Math.min(meta.numberOfAyahs || s.ayahs, 10);
+                            this.openRangeForSurah(s.number, 1, defaultEnd);
+                        }
+                    };
+                });
+            }
+        }
+
+        if (filteredSurahs.length === 0 && matchedPassages.length === 0 && !hasDirectMatch) {
+            const empty = this.listContainer.createDiv({ cls: 'quran-picker-empty' });
+            empty.textContent = `No surahs or passages found matching "${q}"`;
+        }
+    }
+
+    openRangeForSurah(surahNum, startVerse, endVerse) {
+        this.selectedSurah = surahNum;
+        const meta = this.plugin.getSurahMeta(surahNum);
+        const sInfo = SURAHS.find(s => s.number === surahNum) || SURAHS[0];
+        const totalAyahs = meta.numberOfAyahs || sInfo.ayahs || 7;
+        this.selectedStartVerse = Math.min(totalAyahs, Math.max(1, startVerse || 1));
+        this.selectedEndVerse = Math.min(totalAyahs, Math.max(this.selectedStartVerse, endVerse || Math.min(totalAyahs, 10)));
+        this.viewMode = 'range';
+        this.renderContent();
+    }
+
+    renderRangeView() {
+        const meta = this.plugin.getSurahMeta(this.selectedSurah);
+        const sInfo = SURAHS.find(s => s.number === this.selectedSurah) || SURAHS[0];
+        const totalAyahs = meta.numberOfAyahs || sInfo.ayahs || 7;
+        const cleanArabic = meta.name ? meta.name.replace(/^سُورَةُ\s*/, '') : '';
+
+        const header = this.contentEl.createDiv({ cls: 'quran-picker-header' });
+        const titleRow = header.createDiv({ cls: 'quran-picker-title-row' });
+        titleRow.createEl('h3', { text: `Surah ${meta.englishName || sInfo.name} — Verse Range` });
+
+        const closeBtn = titleRow.createEl('button', { cls: 'quran-picker-close-btn' });
+        closeBtn.type = 'button';
+        closeBtn.title = 'Close';
+        closeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        closeBtn.onclick = () => this.close();
+
+        const body = this.contentEl.createDiv({ cls: 'quran-picker-list-container' });
+
+        const banner = body.createDiv({ cls: 'quran-picker-range-banner' });
+        const bInfo = banner.createDiv({ cls: 'quran-range-banner-info' });
+        bInfo.createSpan({ cls: 'quran-range-banner-num', text: String(this.selectedSurah) });
+        const bDetails = bInfo.createDiv();
+        bDetails.createSpan({ cls: 'quran-range-banner-title', text: meta.englishName || sInfo.name });
+        const bSub = `${meta.englishNameTranslation ? meta.englishNameTranslation + ' • ' : ''}${meta.revelationType || ''} • ${totalAyahs} Ayahs`;
+        bDetails.createDiv({ cls: 'quran-range-banner-sub', text: bSub });
+
+        if (cleanArabic) {
+            banner.createSpan({ cls: 'quran-range-banner-arabic', text: cleanArabic });
+        }
+
+        const presetsContainer = body.createDiv({ cls: 'quran-picker-range-presets' });
+
+        const inputsContainer = body.createDiv({ cls: 'quran-picker-range-inputs' });
+
+        const fromGroup = inputsContainer.createDiv({ cls: 'quran-range-input-group' });
+        fromGroup.createEl('label', { text: 'From Verse' });
+        const fromStepper = fromGroup.createDiv({ cls: 'quran-range-stepper' });
+        const fromDecBtn = fromStepper.createEl('button', { cls: 'quran-stepper-btn', text: '−' });
+        fromDecBtn.type = 'button';
+        const fromInput = fromStepper.createEl('input', { cls: 'quran-stepper-input' });
+        fromInput.type = 'number';
+        fromInput.min = '1';
+        fromInput.max = String(totalAyahs);
+        fromInput.value = String(this.selectedStartVerse);
+        const fromIncBtn = fromStepper.createEl('button', { cls: 'quran-stepper-btn', text: '+' });
+        fromIncBtn.type = 'button';
+
+        const toGroup = inputsContainer.createDiv({ cls: 'quran-range-input-group' });
+        toGroup.createEl('label', { text: 'To Verse' });
+        const toStepper = toGroup.createDiv({ cls: 'quran-range-stepper' });
+        const toDecBtn = toStepper.createEl('button', { cls: 'quran-stepper-btn', text: '−' });
+        toDecBtn.type = 'button';
+        const toInput = toStepper.createEl('input', { cls: 'quran-stepper-input' });
+        toInput.type = 'number';
+        toInput.min = '1';
+        toInput.max = String(totalAyahs);
+        toInput.value = String(this.selectedEndVerse);
+        const toIncBtn = toStepper.createEl('button', { cls: 'quran-stepper-btn', text: '+' });
+        toIncBtn.type = 'button';
+
+        const summaryEl = body.createDiv({ cls: 'quran-picker-range-summary' });
+
+        const actions = this.contentEl.createDiv({ cls: 'quran-picker-range-actions' });
+        const backBtn = actions.createEl('button', { cls: 'quran-picker-back-btn', text: 'Back' });
+        backBtn.type = 'button';
+        backBtn.onclick = () => {
+            this.viewMode = 'surah';
+            this.renderContent();
+        };
+
+        const insertBtn = actions.createEl('button', { cls: 'quran-picker-insert-btn', text: '+ Insert Below' });
+        insertBtn.type = 'button';
+        insertBtn.title = 'Insert a new block below with this range';
+        insertBtn.onclick = async () => {
+            await this.insertRange(this.selectedSurah, this.selectedStartVerse, this.selectedEndVerse);
+        };
+
+        const applyBtn = actions.createEl('button', { cls: 'quran-picker-apply-btn' });
+        applyBtn.type = 'button';
+
+        const updateState = (start, end) => {
+            this.selectedStartVerse = Math.min(totalAyahs, Math.max(1, start));
+            this.selectedEndVerse = Math.min(totalAyahs, Math.max(this.selectedStartVerse, end));
+
+            fromInput.value = String(this.selectedStartVerse);
+            toInput.value = String(this.selectedEndVerse);
+
+            const count = this.selectedEndVerse - this.selectedStartVerse + 1;
+            summaryEl.textContent = `Showing ${count} verse${count === 1 ? '' : 's'} (${this.selectedStartVerse} to ${this.selectedEndVerse}) of ${totalAyahs}`;
+            applyBtn.textContent = `Apply Range (${this.selectedSurah}:${this.selectedStartVerse}–${this.selectedEndVerse})`;
+
+            presetsContainer.querySelectorAll('.quran-range-chip').forEach(c => {
+                const pStart = parseInt(c.getAttribute('data-start') || '0');
+                const pEnd = parseInt(c.getAttribute('data-end') || '0');
+                if (pStart === this.selectedStartVerse && pEnd === this.selectedEndVerse) {
+                    c.classList.add('is-active');
+                } else {
+                    c.classList.remove('is-active');
+                }
+            });
+        };
+
+        const presets = [];
+        if (totalAyahs >= 1) presets.push({ label: `1–${Math.min(5, totalAyahs)}`, start: 1, end: Math.min(5, totalAyahs) });
+        if (totalAyahs >= 10) presets.push({ label: '1–10', start: 1, end: 10 });
+        if (totalAyahs >= 20) presets.push({ label: '1–20', start: 1, end: 20 });
+        if (totalAyahs > 10) presets.push({ label: `Last 10 (${totalAyahs - 9}–${totalAyahs})`, start: totalAyahs - 9, end: totalAyahs });
+        presets.push({ label: `Whole Surah (1–${totalAyahs})`, start: 1, end: totalAyahs });
+
+        PRESET_PASSAGES.filter(p => p.surah === this.selectedSurah).forEach(p => {
+            presets.unshift({ label: `${p.label} (${p.startVerse}${p.startVerse !== p.endVerse ? '–' + p.endVerse : ''})`, start: p.startVerse, end: p.endVerse });
+        });
+
+        presets.forEach(p => {
+            const chip = presetsContainer.createEl('button', {
+                cls: `quran-range-chip${p.start === this.selectedStartVerse && p.end === this.selectedEndVerse ? ' is-active' : ''}`,
+                text: p.label
+            });
+            chip.type = 'button';
+            chip.setAttribute('data-start', String(p.start));
+            chip.setAttribute('data-end', String(p.end));
+            chip.onclick = () => {
+                updateState(p.start, p.end);
+            };
+        });
+
+        fromDecBtn.onclick = () => updateState(this.selectedStartVerse - 1, this.selectedEndVerse);
+        fromIncBtn.onclick = () => updateState(this.selectedStartVerse + 1, Math.max(this.selectedStartVerse + 1, this.selectedEndVerse));
+        fromInput.onchange = () => updateState(parseInt(fromInput.value) || 1, this.selectedEndVerse);
+
+        toDecBtn.onclick = () => updateState(Math.min(this.selectedStartVerse, this.selectedEndVerse - 1), this.selectedEndVerse - 1);
+        toIncBtn.onclick = () => updateState(this.selectedStartVerse, this.selectedEndVerse + 1);
+        toInput.onchange = () => updateState(this.selectedStartVerse, parseInt(toInput.value) || totalAyahs);
+
+        applyBtn.onclick = async () => {
+            await this.applyRange(this.selectedSurah, this.selectedStartVerse, this.selectedEndVerse);
+        };
+
+        updateState(this.selectedStartVerse, this.selectedEndVerse);
+    }
+
+    async applyRange(surah, startVerse, endVerse) {
+        const newRef = `${surah}:${startVerse}-${endVerse}`;
+        await this.plugin.updateSourceRange(this.container, newRef);
+        const st = this.container._quranState || {};
+        this.renderEl.innerHTML = '';
+        await this.plugin.renderQuranWithTajweed(
+            newRef,
+            this.renderEl,
+            false,
+            st.reciter,
+            st.audioEnabled,
+            st.translationEnabled,
+            st.transliterationEnabled,
+            st.ctx,
+            st.customLabel
+        );
+        this.close();
+    }
+
+    async insertRange(surah, startVerse, endVerse) {
+        const newRef = `${surah}:${startVerse}-${endVerse}`;
+        await this.plugin.insertQuranBlock(this.container, 'below', newRef);
+        this.close();
     }
 }
