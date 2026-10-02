@@ -88,10 +88,10 @@
 
 .quran-range-controls {
     position: relative;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     padding: 6px 10px;
-    background: var(--background-primary);
-    border-radius: 8px;
+    background: var(--background-secondary);
+    border-radius: 10px;
     border: 1px solid var(--background-modifier-border);
     display: flex;
     align-items: center;
@@ -99,6 +99,8 @@
     gap: 8px;
     flex-wrap: wrap;
     direction: ltr;
+    font-family: var(--font-interface, var(--default-font), sans-serif);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .quran-control-bar {
@@ -119,7 +121,7 @@
     background: var(--interactive-normal);
     color: var(--text-normal);
     cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -136,12 +138,13 @@
 .quran-play-btn {
     background: var(--interactive-accent);
     color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
 }
 
 .quran-play-btn svg,
 .quran-stop-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
 }
 
 .quran-repeat-controls {
@@ -151,26 +154,31 @@
 }
 
 .quran-repeat-select {
-    background: transparent;
-    border: none;
+    background: var(--background-modifier-form-field, rgba(127, 127, 127, 0.08));
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
     color: var(--text-muted);
-    font-size: 0.6em;
-    font-family: Arial, sans-serif;
+    font-size: 0.72em;
+    font-weight: 600;
+    font-family: var(--font-interface, var(--default-font), sans-serif);
     cursor: pointer;
-    padding: 0;
+    padding: 3px 6px;
     outline: none;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .quran-repeat-select:hover {
     color: var(--text-normal);
+    border-color: var(--interactive-accent);
+    background: var(--background-modifier-hover);
 }
 
 .quran-repeat-display {
-    font-size: 0.6em;
+    font-size: 0.68em;
     color: var(--interactive-accent);
     font-weight: 600;
-    font-family: Arial, sans-serif;
-    min-width: 30px;
+    font-family: var(--font-interface, var(--default-font), sans-serif);
+    min-width: 24px;
 }
 
 .quran-add-btn {
@@ -318,11 +326,6 @@
     transform: translateX(14px);
 }
 
-.quran-verse-active {
-    border-left: 3px solid var(--interactive-accent);
-    scroll-margin: 80px;
-}
-
 .quran-nav-bar {
     display: flex;
     align-items: center;
@@ -331,23 +334,24 @@
     padding-bottom: 0;
     border-bottom: none;
     direction: ltr;
+    font-family: var(--font-interface, var(--default-font), sans-serif);
 }
 
 .quran-nav-select {
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--background-modifier-border);
+    background: var(--background-modifier-form-field);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
     color: var(--text-normal);
-    font-size: 0.65em;
-    font-family: Arial, sans-serif;
+    font-size: 0.72em;
+    font-family: var(--font-interface, var(--default-font), sans-serif);
     cursor: pointer;
-    padding: 2px 4px;
+    padding: 3px 6px;
     outline: none;
     max-width: 180px;
 }
 
 .quran-nav-select:hover {
-    border-bottom-color: var(--interactive-accent);
+    border-color: var(--interactive-accent);
 }
 
 .verse-number {
@@ -1297,57 +1301,77 @@ body:not(.theme-light) .quran-v4-mode .quran-word-v4 {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: var(--background-modifier-form-field);
+    background: var(--background-primary);
     border: 1px solid var(--background-modifier-border);
-    border-radius: 6px;
-    padding: 3px 8px;
-    font-size: 0.78em;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-family: var(--font-interface, var(--default-font), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    font-size: 0.82em;
     font-weight: 500;
+    line-height: 1.45;
     color: var(--text-normal);
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
     max-width: 100%;
 }
 
 .quran-nav-picker-btn:hover {
     border-color: var(--interactive-accent);
     background: var(--background-modifier-hover);
+    box-shadow: 0 0 0 1px var(--interactive-accent), 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .quran-picker-btn-icon {
     display: inline-flex;
     align-items: center;
     color: var(--interactive-accent);
+    flex-shrink: 0;
+}
+
+.quran-picker-btn-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82em;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-family: var(--font-interface, sans-serif);
+    line-height: 1;
+    background: var(--background-modifier-form-field, rgba(127, 127, 127, 0.1));
+    border-radius: 4px;
+    padding: 2px 5px;
 }
 
 .quran-picker-btn-name {
+    font-weight: 600;
+    color: var(--text-normal);
+    font-family: var(--font-interface, var(--default-font), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    line-height: 1.4;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    letter-spacing: -0.01em;
 }
 
-.quran-picker-btn-arabic {
-    font-family: 'Amiri', 'Traditional Arabic', 'Scheherazade New', serif;
-    font-size: 1.15em;
-    color: var(--text-muted);
-    direction: rtl;
-    line-height: 1;
-}
 
 .quran-picker-btn-verses {
-    font-size: 0.85em;
+    font-size: 0.8em;
     font-weight: 600;
+    font-family: var(--font-interface, var(--default-font), sans-serif);
     color: var(--interactive-accent);
-    background: var(--background-modifier-hover);
-    padding: 1px 5px;
-    border-radius: 4px;
+    background: var(--background-modifier-form-field, rgba(127, 127, 127, 0.1));
+    border: 1px solid var(--background-modifier-border);
+    padding: 1px 7px;
+    border-radius: 12px;
     white-space: nowrap;
+    line-height: 1.35;
 }
 
 .quran-picker-btn-chevron {
     color: var(--text-muted);
     flex-shrink: 0;
-    transition: transform 0.15s ease;
+    transition: transform 0.15s ease, color 0.15s ease;
 }
 
 .quran-nav-picker-btn:hover .quran-picker-btn-chevron {

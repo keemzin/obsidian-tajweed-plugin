@@ -2354,9 +2354,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
                 pickerBtn.innerHTML = `
                     <span class="quran-picker-btn-icon"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
-                    <span class="quran-picker-btn-name">${surah}. ${sInfo.name}</span>
+                    <span class="quran-picker-btn-num">${surah}</span>
+                    <span class="quran-picker-btn-name">${sInfo.name}</span>
                     <span class="quran-picker-btn-verses">${startVerse}–${endVerse}</span>
-                    <svg class="quran-picker-btn-chevron" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="6 9 12 15 18 9"/></svg>
+                    <svg class="quran-picker-btn-chevron" viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="6 9 12 15 18 9"/></svg>
                 `;
 
                 pickerBtn.onclick = (e) => {
