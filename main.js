@@ -1081,23 +1081,51 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const audioContainer = document.createElement('div');
         audioContainer.className = 'quran-audio-container';
 
-        // Create audio element with explicit source
         const audio = new Audio();
-        audio.controls = true;
+        audio.controls = false;
         audio.className = 'quran-audio-player';
         audio.preload = 'none';
         audio.crossOrigin = 'anonymous';
         audio.playbackRate = this.settings.defaultPlaybackSpeed || 1.0;
+        audio.style.display = 'none';
 
         const audioUrl = this.getAudioUrl(reciter, surah, verse);
 
-        // Set source using source element for better compatibility
         const source = document.createElement('source');
         source.src = audioUrl;
         source.type = 'audio/mpeg';
         audio.appendChild(source);
 
-        // Add error handling with more details
+        const playBtn = document.createElement('button');
+        playBtn.type = 'button';
+        playBtn.className = 'quran-verse-audio-btn';
+        playBtn.title = `Play Ayah ${verse}`;
+        playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><polygon points="6,4 18,12 6,20"/></svg><span>Play</span>';
+
+        playBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (audio.paused) {
+                document.querySelectorAll('.quran-audio-player').forEach(a => {
+                    if (a !== audio && !a.paused) a.pause();
+                });
+                audio.play().catch(err => console.error('Audio play error', err));
+            } else {
+                audio.pause();
+            }
+        };
+
+        audio.addEventListener('play', () => {
+            playBtn.classList.add('quran-audio-playing');
+            playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Pause</span>';
+            if (verseDiv) this.highlightVerse(verseDiv, true);
+        });
+
+        audio.addEventListener('pause', () => {
+            playBtn.classList.remove('quran-audio-playing');
+            playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><polygon points="6,4 18,12 6,20"/></svg><span>Play</span>';
+            if (verseDiv && (!rangeControls || !rangeControls.isPlaying)) this.highlightVerse(verseDiv, false);
+        });
+
         audio.addEventListener('error', (e) => {
             const errorMap = {
                 1: 'MEDIA_ERR_ABORTED',
@@ -1118,7 +1146,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         });
 
         audio.addEventListener('ended', () => {
-            if (!rangeControls || !rangeControls.isPlaying || !verseDiv) return;
+            playBtn.classList.remove('quran-audio-playing');
+            playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><polygon points="6,4 18,12 6,20"/></svg><span>Play</span>';
+            if (!rangeControls || !rangeControls.isPlaying || !verseDiv) {
+                if (verseDiv) this.highlightVerse(verseDiv, false);
+                return;
+            }
             if (rangeControls.isPaused) return;
             this.highlightVerse(verseDiv, false);
 
@@ -1156,6 +1189,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         });
 
         audioContainer.appendChild(audio);
+        audioContainer.appendChild(playBtn);
         return audioContainer;
     }
 
@@ -1482,6 +1516,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             controls.audioControls.forEach(el => el.style.display = 'none');
         }
 
+        const existingNavBar = container.querySelector('.quran-nav-bar');
+        if (existingNavBar) {
+            controlsContainer.insertBefore(existingNavBar, controlsContainer.firstChild);
+        }
         controlsContainer.appendChild(controlBar);
         container.insertBefore(controlsContainer, container.firstChild);
 
@@ -1760,7 +1798,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         if (isHighlighted) {
             verseDiv.classList.add('quran-verse-active');
             if (this.settings.autoScrollAudio) {
-                verseDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const rect = verseDiv.getBoundingClientRect();
+                const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+                const isInView = rect.top >= 40 && rect.bottom <= windowHeight - 40;
+                if (!isInView) {
+                    verseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
             }
         } else {
             verseDiv.classList.remove('quran-verse-active');
@@ -1818,8 +1861,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         state.verseElements.forEach((ve, i) => {
             if (!ve.audioPlayer) {
                 const verse = state.arabicVerses[i];
+                let actionsDiv = ve.div.querySelector('.quran-verse-actions');
+                if (!actionsDiv) {
+                    actionsDiv = ve.div.createDiv({ cls: 'quran-verse-actions' });
+                }
                 const ap = this.createAudioPlayer(state.reciter, state.surah, verse.numberInSurah, ve.div, rangeControls);
-                ve.div.appendChild(ap);
+                actionsDiv.insertBefore(ap, actionsDiv.firstChild);
                 ve.audioPlayer = ap;
             }
         });
@@ -1830,6 +1877,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (ve.audioPlayer) {
                 ve.audioPlayer.remove();
                 ve.audioPlayer = null;
+            }
+            const actionsDiv = ve.div.querySelector('.quran-verse-actions');
+            if (actionsDiv && actionsDiv.children.length === 0) {
+                actionsDiv.remove();
             }
         });
         if (state.rangeControls && state.rangeControls.audioControls) {
@@ -2547,8 +2598,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (audioEnabled) {
                 verseElements.forEach((ve, i) => {
                     const verse = arabicVerses[i];
+                    let actionsDiv = ve.div.querySelector('.quran-verse-actions');
+                    if (!actionsDiv) {
+                        actionsDiv = ve.div.createDiv({ cls: 'quran-verse-actions' });
+                    }
                     const ap = this.createAudioPlayer(reciter, surah, verse.numberInSurah, ve.div, state.rangeControls);
-                    ve.div.appendChild(ap);
+                    actionsDiv.insertBefore(ap, actionsDiv.firstChild);
                     ve.audioPlayer = ap;
                 });
             }
