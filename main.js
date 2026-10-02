@@ -3169,8 +3169,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const onUserScrollSettled = () => {
             if (isPointerDown) return;
             isWheelUserScrolling = false;
-            const snappedIdx = snapWheel();
-            startBufferTimer(snappedIdx, 350);
+            snapWheel();
         };
 
         wheelScroll.addEventListener('scroll', () => {
@@ -3180,24 +3179,25 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 updateWheelVisuals(currentIdx);
             });
 
-            if (isProgrammaticScroll) return;
+            if (!isWheelUserScrolling || isProgrammaticScroll) return;
 
             clearBufferTimer();
-            isWheelUserScrolling = true;
             clearTimeout(scrollSettleTimer);
             scrollSettleTimer = setTimeout(onUserScrollSettled, 140);
         }, { passive: true });
 
         wheelScroll.addEventListener('scrollend', () => {
-            if (isProgrammaticScroll || isPointerDown) return;
+            if (!isWheelUserScrolling || isProgrammaticScroll || isPointerDown) return;
             clearTimeout(scrollSettleTimer);
             onUserScrollSettled();
         }, { passive: true });
 
         wheelScroll.addEventListener('wheel', () => {
-            if (isProgrammaticScroll) return;
+            if (isProgrammaticScroll || !index.classList.contains('quran-index-open')) return;
             clearBufferTimer();
             isWheelUserScrolling = true;
+            clearTimeout(scrollSettleTimer);
+            scrollSettleTimer = setTimeout(onUserScrollSettled, 140);
         }, { passive: true });
 
         wheelScroll.addEventListener('pointerdown', (e) => {
@@ -3310,20 +3310,21 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         index._resizeTimer = resizeTimer;
 
         const onNoteScroll = () => {
-            if (isResizing || index._scrollLocked || isWheelUserScrolling || isPointerDown || bufferNavTimer) return;
+            if (isResizing || index._scrollLocked || isWheelUserScrolling || isPointerDown) return;
+            clearBufferTimer();
             if (index.classList.contains('quran-index-open')) return;
             if (scrollRaf) return;
             scrollRaf = requestAnimationFrame(() => {
                 scrollRaf = null;
                 index._scrollRaf = null;
-                if (isResizing || index._scrollLocked || isWheelUserScrolling || isPointerDown || bufferNavTimer) return;
+                if (isResizing || index._scrollLocked || isWheelUserScrolling || isPointerDown) return;
                 if (index.classList.contains('quran-index-open')) return;
                 const idx = findActiveIdx();
                 if (idx !== index._activeIdx) {
                     index._activeIdx = idx;
                     isProgrammaticScroll = true;
-                    wheelScroll.scrollTo({ top: idx * itemHeight, behavior: 'instant' });
-                    setTimeout(() => { isProgrammaticScroll = false; }, 50);
+                    wheelScroll.scrollTop = idx * itemHeight;
+                    requestAnimationFrame(() => { isProgrammaticScroll = false; });
                     updateWheelVisuals(idx);
                 }
             });
