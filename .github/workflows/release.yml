@@ -1,0 +1,87 @@
+name: Release Plugin
+
+on:
+  push:
+    tags:
+      - '*'
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate code syntax
+        run: node --check main.js
+
+      - name: Determine release version and tag
+        id: version_info
+        run: |
+          MANIFEST_VERSION=$(node -p "require('./manifest.json').version")
+          echo "version=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$MANIFEST_VERSION" >> $GITHUB_ENV
+
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${{ github.ref_name }}"
+          else
+            TAG_NAME="$MANIFEST_VERSION"
+          fi
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG_NAME" >> $GITHUB_ENV
+
+      - name: Check if GitHub release already exists
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ steps.version_info.outputs.tag_name }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release ${{ steps.version_info.outputs.tag_name }} already exists. Skipping."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release ${{ steps.version_info.outputs.tag_name }} does not exist. Proceeding to publish."
+          fi
+
+      - name: Create Git Tag if needed
+        if: steps.check_release.outputs.exists == 'false' && !startsWith(github.ref, 'refs/tags/')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version_info.outputs.tag_name }}"
+          git push origin "${{ steps.version_info.outputs.tag_name }}"
+
+      - name: Build plugin zip archive
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          zip -r "quran-tajweed-${{ steps.version_info.outputs.version }}.zip" main.js manifest.json styles.css data/
+
+      - name: Publish GitHub Release
+        if: steps.check_release.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version_info.outputs.tag_name }}
+          name: Release ${{ steps.version_info.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            main.js
+            manifest.json
+            styles.css
+            quran-tajweed-${{ steps.version_info.outputs.version }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
