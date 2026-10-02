@@ -285,6 +285,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             showFloatingMiniPlayer: true,
             showSideIndexWheel: true,
             useRichSurahPicker: true,
+            rememberLastPosition: true,
             starredSurahs: [1, 18, 32, 36, 55, 56, 67, 112, 113, 114]
         };
 
@@ -485,6 +486,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             this.settings.showFloatingMiniPlayer = saved.showFloatingMiniPlayer !== undefined ? saved.showFloatingMiniPlayer : true;
             this.settings.showSideIndexWheel = saved.showSideIndexWheel !== undefined ? saved.showSideIndexWheel : true;
             this.settings.useRichSurahPicker = saved.useRichSurahPicker !== undefined ? saved.useRichSurahPicker : true;
+            this.settings.rememberLastPosition = saved.rememberLastPosition !== undefined ? saved.rememberLastPosition : true;
             this.settings.starredSurahs = Array.isArray(saved.starredSurahs) ? saved.starredSurahs : [1, 18, 32, 36, 55, 56, 67, 112, 113, 114];
         }
     }
@@ -516,6 +518,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             showFloatingMiniPlayer: this.settings.showFloatingMiniPlayer,
             showSideIndexWheel: this.settings.showSideIndexWheel,
             useRichSurahPicker: this.settings.useRichSurahPicker,
+            rememberLastPosition: this.settings.rememberLastPosition,
             starredSurahs: this.settings.starredSurahs
         });
     }
@@ -1797,6 +1800,15 @@ module.exports = class QuranTajweedPlugin extends Plugin {
     highlightVerse(verseDiv, isHighlighted) {
         if (isHighlighted) {
             verseDiv.classList.add('quran-verse-active');
+            const vNum = parseInt(verseDiv.dataset.verseNumber, 10);
+            if (vNum) {
+                const curFile = this.getActiveNoteFile();
+                const container = verseDiv.closest('.quran-tajweed-container');
+                if (container && curFile) {
+                    const ref = container.dataset.quranRef;
+                    this.saveLastPosition(curFile, { ref, line: 0, label: container.dataset.quranLabel || '' }, 0, vNum);
+                }
+            }
             if (this.settings.autoScrollAudio) {
                 const rect = verseDiv.getBoundingClientRect();
                 const windowHeight = window.innerHeight || document.documentElement.clientHeight;
@@ -2683,12 +2695,89 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         this.debounceRebuildIndex(50);
     }
 
-    async buildIndexFromFile() {
-        if (!this.settings.showSideIndexWheel) {
-            const existing = document.querySelector('.quran-page-index');
-            if (existing) this.renderIndexFromBlocks([]);
-            return;
+    saveLastPosition(file, block, idx, verse) {
+        if (!this.settings.rememberLastPosition || !file || !block) return;
+        try {
+            const data = {
+                ref: block.ref,
+                label: block.label,
+                line: block.line,
+                idx: idx,
+                verse: typeof verse === 'number' ? verse : (verse ? parseInt(verse, 10) : null),
+                timestamp: Date.now()
+            };
+            localStorage.setItem(`quran-last-pos-${file.path}`, JSON.stringify(data));
+            localStorage.setItem('quran-last-pos-global', JSON.stringify({ path: file.path, ...data }));
+        } catch (e) {}
+    }
+
+    findActiveVerse(container) {
+        if (!container) return null;
+        const verseDivs = Array.from(container.querySelectorAll('.quran-verse'));
+        if (verseDivs.length === 0) return null;
+        const viewH = window.innerHeight;
+        let bestVerse = null;
+        let bestScore = -Infinity;
+        for (const v of verseDivs) {
+            const rect = v.getBoundingClientRect();
+            if (rect.bottom < 40 || rect.top > viewH - 40) continue;
+            const visible = Math.min(rect.bottom, viewH) - Math.max(rect.top, 0);
+            if (visible > bestScore) {
+                bestScore = visible;
+                bestVerse = parseInt(v.dataset.verseNumber, 10);
+            }
         }
+        return bestVerse;
+    }
+
+    getLastPosition(file) {
+        if (!this.settings.rememberLastPosition) return null;
+        try {
+            if (file) {
+                const raw = localStorage.getItem(`quran-last-pos-${file.path}`);
+                if (raw) return JSON.parse(raw);
+            }
+            const globalRaw = localStorage.getItem('quran-last-pos-global');
+            if (globalRaw) return JSON.parse(globalRaw);
+        } catch (e) {}
+        return null;
+    }
+
+    restorePositionDirect(b, targetVerse) {
+        if (!b) return;
+        const { MarkdownView } = require('obsidian');
+        const view = this.app?.workspace?.getActiveViewOfType(MarkdownView);
+        if (view && typeof b.line === 'number') {
+            if (typeof view.setEphemeralState === 'function') {
+                view.setEphemeralState({ line: b.line });
+            }
+            if (view.previewMode && typeof view.previewMode.applyScroll === 'function') {
+                view.previewMode.applyScroll(b.line);
+            }
+            if (view.editor && typeof view.editor.scrollIntoView === 'function') {
+                view.editor.scrollIntoView({ from: { line: b.line, ch: 0 }, to: { line: b.line, ch: 0 } }, true);
+            }
+        }
+        let attempts = 15;
+        const check = () => {
+            attempts--;
+            const containers = Array.from(document.querySelectorAll('.quran-tajweed-container'));
+            const target = containers.find(c => c.dataset.quranRef === b.ref);
+            if (target) {
+                let elToScroll = target;
+                if (targetVerse) {
+                    const verseEl = target.querySelector(`.quran-verse[data-verse-number="${targetVerse}"]`);
+                    if (verseEl) elToScroll = verseEl;
+                }
+                elToScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+            if (attempts > 0) setTimeout(check, 80);
+        };
+        setTimeout(check, 100);
+    }
+
+    async buildIndexFromFile() {
         const file = this.getActiveNoteFile();
         if (!file || file.extension !== 'md') return;
 
@@ -2726,6 +2815,34 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             } else if (inBlock) {
                 blockLines.push(line);
             }
+        }
+
+        if (!this.settings.showSideIndexWheel) {
+            const existing = document.querySelector('.quran-page-index');
+            if (existing) {
+                if (existing._scrollListeners) existing._scrollListeners.forEach(({ el, fn }) => el.removeEventListener('scroll', fn));
+                if (existing._docListeners) existing._docListeners.forEach(({ type, fn }) => document.removeEventListener(type, fn));
+                if (existing._winListeners) existing._winListeners.forEach(({ type, fn }) => window.removeEventListener(type, fn));
+                if (typeof existing._clearBufferTimer === 'function') existing._clearBufferTimer();
+                clearTimeout(existing._scrollLockTimer);
+                clearTimeout(existing?._savePosTimer);
+                existing.remove();
+            }
+            if (this.settings.rememberLastPosition !== false && blocks.length > 0 && (!this._lastRestoredFilePath || this._lastRestoredFilePath !== file.path)) {
+                this._lastRestoredFilePath = file.path;
+                const savedPos = this.getLastPosition(file);
+                if (savedPos) {
+                    let matchIdx = blocks.findIndex(b => b.ref === savedPos.ref && b.line === savedPos.line);
+                    if (matchIdx === -1) matchIdx = blocks.findIndex(b => b.ref === savedPos.ref);
+                    if (matchIdx === -1 && typeof savedPos.idx === 'number' && savedPos.idx < blocks.length) {
+                        matchIdx = savedPos.idx;
+                    }
+                    if (matchIdx >= 0 && (matchIdx > 0 || savedPos.line > 0 || (savedPos.verse && savedPos.verse > 1))) {
+                        this.restorePositionDirect(blocks[matchIdx], savedPos.verse);
+                    }
+                }
+            }
+            return;
         }
 
         this.renderIndexFromBlocks(blocks);
@@ -2770,6 +2887,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         }
         clearTimeout(existing?._scrollLockTimer);
         clearTimeout(existing?._resizeTimer);
+        clearTimeout(existing?._savePosTimer);
         if (existing?._scrollRaf) cancelAnimationFrame(existing._scrollRaf);
 
         if (blocks.length < 1) {
@@ -3066,8 +3184,10 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             return null;
         };
 
-        const navigateToBlock = (b, idx) => {
+        const navigateToBlock = (b, idx, targetVerse) => {
             if (!b) return;
+            const curFile = this.getActiveNoteFile();
+            this.saveLastPosition(curFile, b, idx, targetVerse);
             index._scrollLocked = true;
             clearTimeout(index._scrollLockTimer);
             index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1600);
@@ -3112,7 +3232,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 if (scrollEl && scrollEl !== document.documentElement) {
                     const elRect = el.getBoundingClientRect();
                     const scrollerRect = scrollEl.getBoundingClientRect();
-                    const offsetTop = Math.max(0, scrollEl.scrollTop + (elRect.top - scrollerRect.top) - 30);
+                    const offsetTop = Math.max(0, scrollEl.scrollTop + (elRect.top - scrollerRect.top) - 40);
                     if (smooth) {
                         smoothScrollTo(scrollEl, offsetTop, 460);
                     } else {
@@ -3124,9 +3244,19 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 flashElement(el);
             };
 
+            const resolveTargetElement = (container) => {
+                if (!container) return null;
+                if (targetVerse) {
+                    const verseEl = container.querySelector(`.quran-verse[data-verse-number="${targetVerse}"]`);
+                    if (verseEl) return verseEl;
+                }
+                return container;
+            };
+
             const target = findTargetContainer(b, idx);
             if (target) {
-                scrollToElement(target, true);
+                const elToScroll = resolveTargetElement(target);
+                scrollToElement(elToScroll, true);
                 clearTimeout(index._scrollLockTimer);
                 index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 800);
                 return;
@@ -3164,7 +3294,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 }
                 const found = findTargetContainer(b, idx);
                 if (found) {
-                    scrollToElement(found, true);
+                    const elToScroll = resolveTargetElement(found);
+                    scrollToElement(elToScroll, true);
                     clearTimeout(index._scrollLockTimer);
                     index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 800);
                     return;
@@ -3217,6 +3348,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             wheelScroll.scrollTo({ top: clamped * itemHeight, behavior: 'smooth' });
             setTimeout(() => { isProgrammaticScroll = false; }, 260);
             updateWheelVisuals(clamped);
+            const curFile = this.getActiveNoteFile();
+            if (blocks[clamped]) this.saveLastPosition(curFile, blocks[clamped], clamped);
             if (scrollToNote && blocks[clamped]) {
                 navigateToBlock(blocks[clamped], clamped);
             }
@@ -3365,6 +3498,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         index._winListeners.push({ type: 'resize', fn: onResize });
         index._resizeTimer = resizeTimer;
 
+        let savePosTimer = null;
+
         const onNoteScroll = () => {
             if (isResizing || index._scrollLocked || isWheelUserScrolling || isPointerDown) return;
             clearBufferTimer();
@@ -3382,6 +3517,17 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     wheelScroll.scrollTop = idx * itemHeight;
                     requestAnimationFrame(() => { isProgrammaticScroll = false; });
                     updateWheelVisuals(idx);
+                    clearTimeout(savePosTimer);
+                    savePosTimer = setTimeout(() => {
+                        const curFile = this.getActiveNoteFile();
+                        const curIdx = index._activeIdx ?? idx;
+                        if (blocks[curIdx]) {
+                            const container = findTargetContainer(blocks[curIdx], curIdx);
+                            const curVerse = this.findActiveVerse(container);
+                            this.saveLastPosition(curFile, blocks[curIdx], curIdx, curVerse);
+                        }
+                    }, 400);
+                    index._savePosTimer = savePosTimer;
                 }
             });
             index._scrollRaf = scrollRaf;
@@ -3402,10 +3548,45 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (!seen.has(el)) { seen.add(el); addScrollListener(el); }
         });
 
-        const initialIdx = Math.min(Math.max(0, findActiveIdx()), blocks.length - 1);
-        index._activeIdx = initialIdx;
-        wheelScroll.scrollTop = initialIdx * itemHeight;
-        updateWheelVisuals(initialIdx);
+        const activeFile = this.getActiveNoteFile();
+        let targetIdx = 0;
+        let shouldAutoRestore = false;
+        let savedTargetVerse = null;
+
+        if (existing) {
+            targetIdx = Math.min(prevIdx, blocks.length - 1);
+        } else if (this.settings.rememberLastPosition !== false && activeFile) {
+            const savedPos = this.getLastPosition(activeFile);
+            if (savedPos && blocks.length > 0) {
+                let matchIdx = blocks.findIndex(b => b.ref === savedPos.ref && b.line === savedPos.line);
+                if (matchIdx === -1) matchIdx = blocks.findIndex(b => b.ref === savedPos.ref);
+                if (matchIdx === -1 && typeof savedPos.idx === 'number' && savedPos.idx < blocks.length) {
+                    matchIdx = savedPos.idx;
+                }
+                if (matchIdx >= 0) {
+                    targetIdx = matchIdx;
+                    savedTargetVerse = savedPos.verse || null;
+                    if (targetIdx > 0 || savedPos.line > 0 || (savedPos.verse && savedPos.verse > 1)) {
+                        shouldAutoRestore = true;
+                    }
+                }
+            }
+            if (!shouldAutoRestore) {
+                targetIdx = Math.min(Math.max(0, findActiveIdx()), blocks.length - 1);
+            }
+        } else {
+            targetIdx = Math.min(Math.max(0, findActiveIdx()), blocks.length - 1);
+        }
+
+        index._activeIdx = targetIdx;
+        wheelScroll.scrollTop = targetIdx * itemHeight;
+        updateWheelVisuals(targetIdx);
+
+        if (shouldAutoRestore && blocks[targetIdx]) {
+            setTimeout(() => {
+                navigateToBlock(blocks[targetIdx], targetIdx, savedTargetVerse);
+            }, 300);
+        }
     }
 
     refreshQuranIndex(el) {
@@ -4076,6 +4257,17 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                     } else {
                         this.plugin.buildIndexFromFile();
                     }
+                });
+            });
+
+        new Setting(containerEl)
+            .setName('Remember Reading Position')
+            .setDesc('Automatically restore the last viewed Surah and Ayah when reopening Obsidian or switching notes.')
+            .addToggle((toggle) => {
+                toggle.setValue(this.plugin.settings.rememberLastPosition !== false);
+                toggle.onChange(async (value) => {
+                    this.plugin.settings.rememberLastPosition = value;
+                    await this.plugin.saveSettings();
                 });
             });
 
