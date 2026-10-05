@@ -1802,19 +1802,27 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             verseDiv.classList.add('quran-verse-active');
             const vNum = parseInt(verseDiv.dataset.verseNumber, 10);
             if (vNum) {
-                const curFile = this.getActiveNoteFile();
                 const container = verseDiv.closest('.quran-tajweed-container');
+                const curFile = (container ? this.getFileForContainer(container) : null) || this.getActiveNoteFile();
                 if (container && curFile) {
                     const ref = container.dataset.quranRef;
-                    this.saveLastPosition(curFile, { ref, line: 0, label: container.dataset.quranLabel || '' }, 0, vNum);
+                    const blockIdx = this.findBlockIndexForContainer(container, vNum);
+                    const lineNum = (this._lastBlocks && this._lastBlocks[blockIdx]) ? (this._lastBlocks[blockIdx].line || 0) : 0;
+                    const parsed = ref ? this.extractVerseReference(ref) : null;
+                    this.saveLastPosition(curFile, {
+                        ref,
+                        surah: parsed?.surah,
+                        line: lineNum,
+                        label: container.dataset.quranLabel || ''
+                    }, blockIdx, vNum, 'playback');
                 }
             }
             if (this.settings.autoScrollAudio) {
                 const rect = verseDiv.getBoundingClientRect();
                 const windowHeight = window.innerHeight || document.documentElement.clientHeight;
-                const isInView = rect.top >= 40 && rect.bottom <= windowHeight - 40;
-                if (!isInView) {
-                    verseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                const isInCenter = rect.top >= windowHeight * 0.35 && rect.bottom <= windowHeight * 0.65;
+                if (!isInCenter) {
+                    verseDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
         } else {
@@ -2515,6 +2523,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 ctx,
                 el,
                 customLabel,
+                lineStart: ctx && typeof ctx.getSectionInfo === 'function' ? (ctx.getSectionInfo(el)?.lineStart ?? ctx.getSectionInfo(container)?.lineStart) : undefined,
+                rawSource: source,
             };
             container._quranState = state;
 
@@ -2583,12 +2593,13 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     if (!transliterationEnabled) transliterationDiv.style.display = 'none';
                 }
 
+                const actionsDiv = verseDiv.createDiv({ cls: 'quran-verse-actions' });
+
                 if (this.settings.tafsirPlacement === 'inline' || this.settings.tafsirPlacement === 'both') {
                     const ayahNum = verse.numberInSurah;
                     const tafsirEntry = tafsirMap ? tafsirMap[ayahNum] : null;
                     const shouldShowTafsir = !this.settings.thematicTafsirOnly || !tafsirMap || (tafsirEntry && tafsirEntry.hasTafsir);
                     if (shouldShowTafsir) {
-                        const actionsDiv = verseDiv.createDiv({ cls: 'quran-verse-actions' });
                         const tafsirBtn = actionsDiv.createEl('button', { cls: 'quran-action-btn quran-tafsir-btn' });
                         const btnLabel = tafsirEntry?.rangeLabel || 'Tafsir';
                         tafsirBtn.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg><span>${btnLabel}</span>`;
@@ -2599,6 +2610,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                         });
                     }
                 }
+
+                const bookmarkBtn = this.createBookmarkButton(container, surah, startVerse, endVerse, verse.numberInSurah, verseDiv);
+                actionsDiv.appendChild(bookmarkBtn);
 
                 let audioPlayer = null;
                 verseElements.push({ div: verseDiv, translationDiv, transliterationDiv, audioPlayer });
@@ -2695,17 +2709,160 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         this.debounceRebuildIndex(50);
     }
 
-    saveLastPosition(file, block, idx, verse) {
+    findBlockIndexForContainer(container, verseNum) {
+        if (!this._lastBlocks || this._lastBlocks.length === 0) return 0;
+        const blocks = this._lastBlocks;
+
+        const st = container?._quranState;
+        if (st && typeof st.lineStart === 'number') {
+            const byLine = blocks.findIndex(b => b.line === st.lineStart);
+            if (byLine >= 0) return byLine;
+        }
+
+        const currentRef = container?.dataset?.quranRef;
+        const parsed = currentRef ? this.extractVerseReference(currentRef) : null;
+        const targetSurah = parsed ? parsed.surah : st?.surah;
+        const vNum = typeof verseNum === 'number' ? verseNum : (verseNum ? parseInt(verseNum, 10) : null);
+
+        if (targetSurah && vNum) {
+            const byVerse = blocks.findIndex(b => {
+                const pb = this.extractVerseReference(b.ref);
+                return pb && pb.surah === targetSurah && vNum >= pb.startVerse && vNum <= pb.endVerse;
+            });
+            if (byVerse >= 0) return byVerse;
+        }
+
+        if (currentRef) {
+            const byRef = blocks.findIndex(b => b.ref === currentRef);
+            if (byRef >= 0) return byRef;
+        }
+
+        if (targetSurah) {
+            const bySurah = blocks.findIndex(b => {
+                const pb = this.extractVerseReference(b.ref);
+                return pb && pb.surah === targetSurah;
+            });
+            if (bySurah >= 0) return bySurah;
+        }
+
+        return 0;
+    }
+
+    createBookmarkButton(container, surah, startVerse, endVerse, verseNum, verseDiv) {
+        const btn = document.createElement('button');
+        btn.className = 'quran-action-btn quran-bookmark-btn';
+        btn.type = 'button';
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
+        btn.title = 'Bookmark this verse';
+
+        const ref = `${surah}:${startVerse}-${endVerse}`;
+        const curFile = this.getFileForContainer(container) || this.getActiveNoteFile();
+        const bookmark = this.getBookmark(curFile);
+        const bSurah = bookmark ? (bookmark.surah || (bookmark.ref ? parseInt(bookmark.ref.split(':')[0], 10) : null)) : null;
+        if (bookmark && bookmark.verse === verseNum && (bookmark.ref === ref || bSurah === surah)) {
+            btn.classList.add('quran-bookmarked');
+            btn.title = `Bookmarked (verse ${verseNum})`;
+        }
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const activeFile = this.getFileForContainer(container) || this.getActiveNoteFile();
+            const currentRef = container.dataset.quranRef || ref;
+            const wasActive = btn.classList.contains('quran-bookmarked');
+
+            document.querySelectorAll('.quran-bookmark-btn.quran-bookmarked').forEach(b => {
+                b.classList.remove('quran-bookmarked');
+                b.title = 'Bookmark this verse';
+            });
+
+            if (!wasActive) {
+                btn.classList.add('quran-bookmarked');
+                btn.title = `Bookmarked (verse ${verseNum})`;
+                if (activeFile) {
+                    const blockIdx = this.findBlockIndexForContainer(container, verseNum);
+                    const lineNum = (this._lastBlocks && this._lastBlocks[blockIdx]) ? (this._lastBlocks[blockIdx].line || 0) : 0;
+                    const blockInfo = {
+                        ref: currentRef,
+                        surah: surah,
+                        line: lineNum,
+                        label: container.dataset.quranLabel || ''
+                    };
+                    this.saveLastPosition(activeFile, blockInfo, blockIdx, verseNum, 'bookmark');
+                }
+                new Notice(`Bookmarked verse ${verseNum}`);
+            } else {
+                if (activeFile) {
+                    try {
+                        localStorage.removeItem(`quran-bookmark-${activeFile.path}`);
+                        localStorage.removeItem('quran-bookmark-global');
+                    } catch (err) {}
+                }
+                new Notice(`Bookmark removed`);
+            }
+        });
+
+        return btn;
+    }
+
+    getBookmark(file) {
+        try {
+            if (file) {
+                const raw = localStorage.getItem(`quran-bookmark-${file.path}`);
+                if (raw) return JSON.parse(raw);
+            }
+            const globalRaw = localStorage.getItem('quran-bookmark-global');
+            if (globalRaw) return JSON.parse(globalRaw);
+        } catch (e) {}
+        return null;
+    }
+
+    saveLastPosition(file, block, idx, verse, source = 'manual') {
         if (!this.settings.rememberLastPosition || !file || !block) return;
         try {
+            const now = Date.now();
+            const verseNum = typeof verse === 'number' ? verse : (verse ? parseInt(verse, 10) : null);
+            let surahNum = block.surah;
+            if (!surahNum && block.ref) {
+                const s = parseInt(block.ref.split(':')[0], 10);
+                if (!isNaN(s)) surahNum = s;
+            }
             const data = {
                 ref: block.ref,
+                surah: surahNum,
                 label: block.label,
-                line: block.line,
-                idx: idx,
-                verse: typeof verse === 'number' ? verse : (verse ? parseInt(verse, 10) : null),
-                timestamp: Date.now()
+                line: typeof block.line === 'number' ? block.line : 0,
+                idx: typeof idx === 'number' ? idx : 0,
+                verse: verseNum,
+                source: source,
+                timestamp: now
             };
+
+            if (source === 'bookmark') {
+                localStorage.setItem(`quran-bookmark-${file.path}`, JSON.stringify(data));
+                localStorage.setItem('quran-bookmark-global', JSON.stringify({ path: file.path, ...data }));
+                localStorage.setItem(`quran-last-pos-${file.path}`, JSON.stringify(data));
+                localStorage.setItem('quran-last-pos-global', JSON.stringify({ path: file.path, ...data }));
+                return;
+            }
+
+            if (source === 'playback') {
+                localStorage.setItem(`quran-playback-${file.path}`, JSON.stringify(data));
+                localStorage.setItem('quran-playback-global', JSON.stringify({ path: file.path, ...data }));
+                localStorage.setItem(`quran-last-pos-${file.path}`, JSON.stringify(data));
+                localStorage.setItem('quran-last-pos-global', JSON.stringify({ path: file.path, ...data }));
+                return;
+            }
+
+            localStorage.setItem(`quran-scroll-${file.path}`, JSON.stringify(data));
+            localStorage.setItem('quran-scroll-global', JSON.stringify({ path: file.path, ...data }));
+
+            const bookmarkRaw = localStorage.getItem(`quran-bookmark-${file.path}`);
+            const playbackRaw = localStorage.getItem(`quran-playback-${file.path}`);
+
+            if (bookmarkRaw || playbackRaw) {
+                return;
+            }
+
             localStorage.setItem(`quran-last-pos-${file.path}`, JSON.stringify(data));
             localStorage.setItem('quran-last-pos-global', JSON.stringify({ path: file.path, ...data }));
         } catch (e) {}
@@ -2716,27 +2873,58 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         const verseDivs = Array.from(container.querySelectorAll('.quran-verse'));
         if (verseDivs.length === 0) return null;
         const viewH = window.innerHeight;
+        const viewCenter = viewH / 2;
         let bestVerse = null;
-        let bestScore = -Infinity;
+        let bestDist = Infinity;
         for (const v of verseDivs) {
             const rect = v.getBoundingClientRect();
-            if (rect.bottom < 40 || rect.top > viewH - 40) continue;
-            const visible = Math.min(rect.bottom, viewH) - Math.max(rect.top, 0);
-            if (visible > bestScore) {
-                bestScore = visible;
+            if (rect.bottom <= 0 || rect.top >= viewH) continue;
+            const mid = (Math.max(0, rect.top) + Math.min(viewH, rect.bottom)) / 2;
+            const dist = Math.abs(mid - viewCenter);
+            if (dist < bestDist) {
+                bestDist = dist;
                 bestVerse = parseInt(v.dataset.verseNumber, 10);
             }
         }
-        return bestVerse;
+        if (bestVerse) return bestVerse;
+        return parseInt(verseDivs[0].dataset.verseNumber, 10) || null;
     }
 
     getLastPosition(file) {
         if (!this.settings.rememberLastPosition) return null;
         try {
             if (file) {
+                const bookmarkRaw = localStorage.getItem(`quran-bookmark-${file.path}`);
+                const bookmark = bookmarkRaw ? JSON.parse(bookmarkRaw) : null;
+                const playbackRaw = localStorage.getItem(`quran-playback-${file.path}`);
+                const playback = playbackRaw ? JSON.parse(playbackRaw) : null;
+                const scrollRaw = localStorage.getItem(`quran-scroll-${file.path}`);
+                const scroll = scrollRaw ? JSON.parse(scrollRaw) : null;
+
+                if (bookmark && playback) {
+                    return (playback.timestamp > bookmark.timestamp) ? playback : bookmark;
+                }
+                if (bookmark) return bookmark;
+                if (playback) return playback;
+                if (scroll) return scroll;
+
                 const raw = localStorage.getItem(`quran-last-pos-${file.path}`);
                 if (raw) return JSON.parse(raw);
             }
+            const globalBookmarkRaw = localStorage.getItem('quran-bookmark-global');
+            const globalBookmark = globalBookmarkRaw ? JSON.parse(globalBookmarkRaw) : null;
+            const globalPlaybackRaw = localStorage.getItem('quran-playback-global');
+            const globalPlayback = globalPlaybackRaw ? JSON.parse(globalPlaybackRaw) : null;
+            const globalScrollRaw = localStorage.getItem('quran-scroll-global');
+            const globalScroll = globalScrollRaw ? JSON.parse(globalScrollRaw) : null;
+
+            if (globalBookmark && globalPlayback) {
+                return (globalPlayback.timestamp > globalBookmark.timestamp) ? globalPlayback : globalBookmark;
+            }
+            if (globalBookmark) return globalBookmark;
+            if (globalPlayback) return globalPlayback;
+            if (globalScroll) return globalScroll;
+
             const globalRaw = localStorage.getItem('quran-last-pos-global');
             if (globalRaw) return JSON.parse(globalRaw);
         } catch (e) {}
@@ -2745,6 +2933,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
     restorePositionDirect(b, targetVerse) {
         if (!b) return;
+        const tVerse = typeof targetVerse === 'number' ? targetVerse : (targetVerse ? parseInt(targetVerse, 10) : null);
         const { MarkdownView } = require('obsidian');
         const view = this.app?.workspace?.getActiveViewOfType(MarkdownView);
         if (view && typeof b.line === 'number') {
@@ -2755,26 +2944,66 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 view.previewMode.applyScroll(b.line);
             }
             if (view.editor && typeof view.editor.scrollIntoView === 'function') {
-                view.editor.scrollIntoView({ from: { line: b.line, ch: 0 }, to: { line: b.line, ch: 0 } }, true);
+                view.editor.scrollIntoView({ from: { line: b.line, ch: 0 }, to: { line: b.line, ch: 0 } }, false);
             }
         }
-        let attempts = 15;
+        let attempts = 40;
         const check = () => {
             attempts--;
             const containers = Array.from(document.querySelectorAll('.quran-tajweed-container'));
-            const target = containers.find(c => c.dataset.quranRef === b.ref);
-            if (target) {
-                let elToScroll = target;
-                if (targetVerse) {
-                    const verseEl = target.querySelector(`.quran-verse[data-verse-number="${targetVerse}"]`);
-                    if (verseEl) elToScroll = verseEl;
+            const pb = this.extractVerseReference(b.ref);
+            const bSurah = pb ? pb.surah : parseInt((b.ref || '').split(':')[0], 10);
+
+            let target = null;
+            if (tVerse && bSurah) {
+                for (const c of containers) {
+                    const cRef = c.dataset.quranRef;
+                    const pc = cRef ? this.extractVerseReference(cRef) : null;
+                    if (pc && pc.surah === bSurah && tVerse >= pc.startVerse && tVerse <= pc.endVerse) {
+                        target = c;
+                        break;
+                    }
+                    if (c.querySelector(`.quran-verse[data-verse-number="${tVerse}"]`)) {
+                        const cSurah = parseInt((c.dataset.quranRef || '').split(':')[0], 10);
+                        if (!cSurah || cSurah === bSurah) {
+                            target = c;
+                            break;
+                        }
+                    }
                 }
-                elToScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            if (!target) {
+                target = containers.find(c => c.dataset.quranRef === b.ref);
+            }
+            if (!target && pb) {
+                target = containers.find(c => {
+                    const pc = this.extractVerseReference(c.dataset.quranRef);
+                    return pc && pc.surah === pb.surah && pc.startVerse === pb.startVerse && pc.endVerse === pb.endVerse;
+                });
+            }
+
+            if (target) {
+                let elToScroll = null;
+                if (tVerse) {
+                    const verseEl = target.querySelector(`.quran-verse[data-verse-number="${tVerse}"]`);
+                    if (verseEl) {
+                        elToScroll = verseEl;
+                    } else if (attempts > 0) {
+                        setTimeout(check, 60);
+                        return;
+                    }
+                }
+                if (!elToScroll) elToScroll = target;
+                try {
+                    elToScroll.scrollIntoView({ behavior: 'instant', block: tVerse ? 'center' : 'start', inline: 'nearest' });
+                } catch (e) {
+                    elToScroll.scrollIntoView();
+                }
                 return;
             }
-            if (attempts > 0) setTimeout(check, 80);
+            if (attempts > 0) setTimeout(check, 60);
         };
-        setTimeout(check, 100);
+        setTimeout(check, 50);
     }
 
     async buildIndexFromFile() {
@@ -2817,6 +3046,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             }
         }
 
+        this._lastBlocks = blocks;
+
         if (!this.settings.showSideIndexWheel) {
             const existing = document.querySelector('.quran-page-index');
             if (existing) {
@@ -2832,12 +3063,19 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 this._lastRestoredFilePath = file.path;
                 const savedPos = this.getLastPosition(file);
                 if (savedPos) {
+                    const sSurah = savedPos.surah || (savedPos.ref ? parseInt(savedPos.ref.split(':')[0], 10) : null);
                     let matchIdx = blocks.findIndex(b => b.ref === savedPos.ref && b.line === savedPos.line);
                     if (matchIdx === -1) matchIdx = blocks.findIndex(b => b.ref === savedPos.ref);
-                    if (matchIdx === -1 && typeof savedPos.idx === 'number' && savedPos.idx < blocks.length) {
+                    if (matchIdx === -1 && sSurah) {
+                        matchIdx = blocks.findIndex(b => {
+                            const bSurah = parseInt((b.ref || '').split(':')[0], 10);
+                            return bSurah === sSurah;
+                        });
+                    }
+                    if (matchIdx === -1 && typeof savedPos.idx === 'number' && savedPos.idx >= 0 && savedPos.idx < blocks.length) {
                         matchIdx = savedPos.idx;
                     }
-                    if (matchIdx >= 0 && (matchIdx > 0 || savedPos.line > 0 || (savedPos.verse && savedPos.verse > 1))) {
+                    if (matchIdx >= 0 && (matchIdx > 0 || savedPos.line > 0 || savedPos.verse || savedPos.source === 'bookmark')) {
                         this.restorePositionDirect(blocks[matchIdx], savedPos.verse);
                     }
                 }
@@ -2849,6 +3087,7 @@ module.exports = class QuranTajweedPlugin extends Plugin {
     }
 
     renderIndexFromBlocks(blocks) {
+        this._lastBlocks = blocks;
         if (!this.settings.showSideIndexWheel) {
             const existing = document.querySelector('.quran-page-index');
             if (existing) {
@@ -3166,28 +3405,57 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             return snappedIdx;
         };
 
-        const findTargetContainer = (b, idx) => {
+        const findTargetContainer = (b, idx, targetVerse) => {
             if (!b || !b.ref) return null;
             const containers = getContainers();
             if (containers.length === 0) return null;
 
-            let occurrenceIdx = 0;
-            for (let i = 0; i < idx; i++) {
-                if (blocks[i].ref === b.ref) occurrenceIdx++;
+            const pb = this.extractVerseReference(b.ref);
+            const bSurah = pb ? pb.surah : parseInt((b.ref || '').split(':')[0], 10);
+            const tVerse = typeof targetVerse === 'number' ? targetVerse : (targetVerse ? parseInt(targetVerse, 10) : null);
+
+            if (tVerse && bSurah) {
+                for (const c of containers) {
+                    const cRef = c.dataset.quranRef;
+                    const pc = cRef ? this.extractVerseReference(cRef) : null;
+                    if (pc && pc.surah === bSurah && tVerse >= pc.startVerse && tVerse <= pc.endVerse) {
+                        return c;
+                    }
+                    if (c.querySelector(`.quran-verse[data-verse-number="${tVerse}"]`)) {
+                        const cSurah = parseInt((c.dataset.quranRef || '').split(':')[0], 10);
+                        if (!cSurah || cSurah === bSurah) return c;
+                    }
+                }
+                return null;
             }
 
-            const matching = containers.filter(c => c.dataset.quranRef === b.ref);
-            if (matching.length > 0) {
-                return matching[occurrenceIdx] || matching[matching.length - 1];
+            const exactMatches = containers.filter(c => c.dataset.quranRef === b.ref);
+            if (exactMatches.length === 1) return exactMatches[0];
+            if (exactMatches.length > 1) {
+                let occurrenceIdx = 0;
+                for (let i = 0; i < idx; i++) {
+                    if (blocks[i].ref === b.ref) occurrenceIdx++;
+                }
+                return exactMatches[occurrenceIdx] || exactMatches[exactMatches.length - 1];
+            }
+
+            if (pb) {
+                const rangeMatch = containers.find(c => {
+                    const pc = this.extractVerseReference(c.dataset.quranRef);
+                    return pc && pc.surah === pb.surah && pc.startVerse === pb.startVerse && pc.endVerse === pb.endVerse;
+                });
+                if (rangeMatch) return rangeMatch;
             }
 
             return null;
         };
 
-        const navigateToBlock = (b, idx, targetVerse) => {
+        const navigateToBlock = (b, idx, targetVerse, skipSave = false) => {
             if (!b) return;
-            const curFile = this.getActiveNoteFile();
-            this.saveLastPosition(curFile, b, idx, targetVerse);
+            if (!skipSave) {
+                const curFile = this.getActiveNoteFile();
+                this.saveLastPosition(curFile, b, idx, targetVerse, 'navigation');
+            }
             index._scrollLocked = true;
             clearTimeout(index._scrollLockTimer);
             index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1600);
@@ -3227,83 +3495,86 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                 requestAnimationFrame(step);
             };
 
-            const scrollToElement = (el, smooth = true) => {
-                const scrollEl = getActiveScroller(el);
-                if (scrollEl && scrollEl !== document.documentElement) {
-                    const elRect = el.getBoundingClientRect();
-                    const scrollerRect = scrollEl.getBoundingClientRect();
-                    const offsetTop = Math.max(0, scrollEl.scrollTop + (elRect.top - scrollerRect.top) - 40);
-                    if (smooth) {
-                        smoothScrollTo(scrollEl, offsetTop, 460);
-                    } else {
-                        scrollEl.scrollTop = offsetTop;
-                    }
-                } else {
-                    el.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant', block: 'start' });
+            const scrollToElement = (el, smooth = false) => {
+                const isVerse = el.classList.contains('quran-verse');
+                try {
+                    el.scrollIntoView({
+                        behavior: smooth ? 'smooth' : 'instant',
+                        block: isVerse ? 'center' : 'start',
+                        inline: 'nearest'
+                    });
+                } catch (e) {
+                    el.scrollIntoView();
                 }
                 flashElement(el);
+            };
+
+            const jumpToBlockLine = () => {
+                const { MarkdownView } = require('obsidian');
+                const view = this.app?.workspace?.getActiveViewOfType(MarkdownView);
+                if (view && typeof b.line === 'number') {
+                    if (typeof view.setEphemeralState === 'function') {
+                        view.setEphemeralState({ line: b.line });
+                    }
+                    if (view.previewMode && typeof view.previewMode.applyScroll === 'function') {
+                        view.previewMode.applyScroll(b.line);
+                    }
+                    if (view.editor && typeof view.editor.scrollIntoView === 'function') {
+                        view.editor.scrollIntoView({ from: { line: b.line, ch: 0 }, to: { line: b.line, ch: 0 } }, false);
+                    }
+                } else {
+                    const scrollEl = getActiveScroller(null);
+                    if (scrollEl && typeof b.line === 'number') {
+                        const lastLine = (blocks.length > 0 && typeof blocks[blocks.length - 1].line === 'number')
+                            ? blocks[blocks.length - 1].line + 30
+                            : 100;
+                        const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+                        const targetTop = Math.max(0, (b.line / Math.max(1, lastLine)) * maxScroll);
+                        scrollEl.scrollTop = targetTop;
+                    }
+                }
             };
 
             const resolveTargetElement = (container) => {
                 if (!container) return null;
                 if (targetVerse) {
                     const verseEl = container.querySelector(`.quran-verse[data-verse-number="${targetVerse}"]`);
-                    if (verseEl) return verseEl;
+                    return verseEl || null;
                 }
                 return container;
             };
 
-            const target = findTargetContainer(b, idx);
-            if (target) {
-                const elToScroll = resolveTargetElement(target);
-                scrollToElement(elToScroll, true);
+            const target = findTargetContainer(b, idx, targetVerse);
+            const elToScroll = resolveTargetElement(target);
+            if (elToScroll) {
+                scrollToElement(elToScroll, false);
                 clearTimeout(index._scrollLockTimer);
-                index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 800);
+                index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1500);
                 return;
             }
 
-            const { MarkdownView } = require('obsidian');
-            const view = this.app?.workspace?.getActiveViewOfType(MarkdownView);
-
-            if (view && typeof b.line === 'number') {
-                if (typeof view.setEphemeralState === 'function') {
-                    view.setEphemeralState({ line: b.line });
-                }
-                if (view.previewMode && typeof view.previewMode.applyScroll === 'function') {
-                    view.previewMode.applyScroll(b.line);
-                }
-                if (view.editor && typeof view.editor.scrollIntoView === 'function') {
-                    view.editor.scrollIntoView({ from: { line: b.line, ch: 0 }, to: { line: b.line, ch: 0 } }, true);
-                }
-            } else {
-                const scrollEl = getActiveScroller(null);
-                if (scrollEl && typeof b.line === 'number') {
-                    const lastLine = (blocks.length > 0 && typeof blocks[blocks.length - 1].line === 'number')
-                        ? blocks[blocks.length - 1].line + 30
-                        : 100;
-                    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-                    const targetTop = Math.max(0, (b.line / Math.max(1, lastLine)) * maxScroll);
-                    smoothScrollTo(scrollEl, targetTop, 460);
-                }
-            }
+            jumpToBlockLine();
 
             const checkInterval = (attemptsLeft) => {
+                const found = findTargetContainer(b, idx, targetVerse) || findTargetContainer(b, idx);
+                const elToScroll = resolveTargetElement(found);
+                if (elToScroll) {
+                    scrollToElement(elToScroll, false);
+                    clearTimeout(index._scrollLockTimer);
+                    index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 1500);
+                    return;
+                }
                 if (attemptsLeft <= 0) {
+                    if (found) {
+                        scrollToElement(found, false);
+                    }
                     index._scrollLocked = false;
                     return;
                 }
-                const found = findTargetContainer(b, idx);
-                if (found) {
-                    const elToScroll = resolveTargetElement(found);
-                    scrollToElement(elToScroll, true);
-                    clearTimeout(index._scrollLockTimer);
-                    index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 800);
-                    return;
-                }
-                setTimeout(() => checkInterval(attemptsLeft - 1), 60);
+                setTimeout(() => checkInterval(attemptsLeft - 1), 50);
             };
 
-            setTimeout(() => checkInterval(20), 60);
+            setTimeout(() => checkInterval(40), 50);
         };
 
         const updateWheelVisuals = (activeIdx) => {
@@ -3348,9 +3619,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             wheelScroll.scrollTo({ top: clamped * itemHeight, behavior: 'smooth' });
             setTimeout(() => { isProgrammaticScroll = false; }, 260);
             updateWheelVisuals(clamped);
-            const curFile = this.getActiveNoteFile();
-            if (blocks[clamped]) this.saveLastPosition(curFile, blocks[clamped], clamped);
             if (scrollToNote && blocks[clamped]) {
+                const curFile = this.getActiveNoteFile();
+                this.saveLastPosition(curFile, blocks[clamped], clamped, null, 'wheel');
                 navigateToBlock(blocks[clamped], clamped);
             }
         };
@@ -3517,18 +3788,19 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     wheelScroll.scrollTop = idx * itemHeight;
                     requestAnimationFrame(() => { isProgrammaticScroll = false; });
                     updateWheelVisuals(idx);
-                    clearTimeout(savePosTimer);
-                    savePosTimer = setTimeout(() => {
-                        const curFile = this.getActiveNoteFile();
-                        const curIdx = index._activeIdx ?? idx;
-                        if (blocks[curIdx]) {
-                            const container = findTargetContainer(blocks[curIdx], curIdx);
-                            const curVerse = this.findActiveVerse(container);
-                            this.saveLastPosition(curFile, blocks[curIdx], curIdx, curVerse);
-                        }
-                    }, 400);
-                    index._savePosTimer = savePosTimer;
                 }
+
+                clearTimeout(savePosTimer);
+                savePosTimer = setTimeout(() => {
+                    const curFile = this.getActiveNoteFile();
+                    const curIdx = index._activeIdx ?? idx;
+                    if (blocks[curIdx]) {
+                        const container = findTargetContainer(blocks[curIdx], curIdx);
+                        const curVerse = this.findActiveVerse(container);
+                        this.saveLastPosition(curFile, blocks[curIdx], curIdx, curVerse, 'scroll');
+                    }
+                }, 350);
+                index._savePosTimer = savePosTimer;
             });
             index._scrollRaf = scrollRaf;
         };
@@ -3553,20 +3825,30 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         let shouldAutoRestore = false;
         let savedTargetVerse = null;
 
-        if (existing) {
+        const isNewFile = !this._lastRestoredFilePath || (activeFile && this._lastRestoredFilePath !== activeFile.path);
+
+        if (!isNewFile && existing) {
             targetIdx = Math.min(prevIdx, blocks.length - 1);
         } else if (this.settings.rememberLastPosition !== false && activeFile) {
+            this._lastRestoredFilePath = activeFile.path;
             const savedPos = this.getLastPosition(activeFile);
             if (savedPos && blocks.length > 0) {
+                const sSurah = savedPos.surah || (savedPos.ref ? parseInt(savedPos.ref.split(':')[0], 10) : null);
                 let matchIdx = blocks.findIndex(b => b.ref === savedPos.ref && b.line === savedPos.line);
                 if (matchIdx === -1) matchIdx = blocks.findIndex(b => b.ref === savedPos.ref);
-                if (matchIdx === -1 && typeof savedPos.idx === 'number' && savedPos.idx < blocks.length) {
+                if (matchIdx === -1 && sSurah) {
+                    matchIdx = blocks.findIndex(b => {
+                        const bSurah = parseInt((b.ref || '').split(':')[0], 10);
+                        return bSurah === sSurah;
+                    });
+                }
+                if (matchIdx === -1 && typeof savedPos.idx === 'number' && savedPos.idx >= 0 && savedPos.idx < blocks.length) {
                     matchIdx = savedPos.idx;
                 }
                 if (matchIdx >= 0) {
                     targetIdx = matchIdx;
                     savedTargetVerse = savedPos.verse || null;
-                    if (targetIdx > 0 || savedPos.line > 0 || (savedPos.verse && savedPos.verse > 1)) {
+                    if (targetIdx > 0 || savedPos.line > 0 || savedPos.verse || savedPos.source === 'bookmark') {
                         shouldAutoRestore = true;
                     }
                 }
@@ -3583,9 +3865,12 @@ module.exports = class QuranTajweedPlugin extends Plugin {
         updateWheelVisuals(targetIdx);
 
         if (shouldAutoRestore && blocks[targetIdx]) {
+            index._scrollLocked = true;
+            clearTimeout(index._scrollLockTimer);
+            index._scrollLockTimer = setTimeout(() => { index._scrollLocked = false; }, 2000);
             setTimeout(() => {
-                navigateToBlock(blocks[targetIdx], targetIdx, savedTargetVerse);
-            }, 300);
+                navigateToBlock(blocks[targetIdx], targetIdx, savedTargetVerse, true);
+            }, 120);
         }
     }
 
@@ -3595,6 +3880,24 @@ module.exports = class QuranTajweedPlugin extends Plugin {
 
     getBlockLineRange(container, lines) {
         const st = container._quranState || {};
+
+        if (typeof st.lineStart === 'number' && st.lineStart >= 0 && st.lineStart < lines.length) {
+            for (let offset = 0; offset <= 3; offset++) {
+                const checkLines = [st.lineStart - offset, st.lineStart + offset];
+                for (const ln of checkLines) {
+                    if (ln >= 0 && ln < lines.length && lines[ln].trim().startsWith('```quran')) {
+                        let end = lines.length;
+                        for (let j = ln + 1; j < lines.length; j++) {
+                            if (lines[j].trim() === '```') {
+                                end = j;
+                                break;
+                            }
+                        }
+                        return { start: ln, end };
+                    }
+                }
+            }
+        }
 
         try {
             if (st.ctx) {
@@ -3620,9 +3923,6 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             }
         } catch (e) {}
 
-        const allContainers = Array.from(document.querySelectorAll('.quran-tajweed-container'));
-        const containerIndex = allContainers.indexOf(container);
-
         const blockRanges = [];
         for (let i = 0; i < lines.length; i++) {
             if (lines[i].trim().startsWith('```quran')) {
@@ -3640,6 +3940,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             }
         }
 
+        const resolvedIdx = this.findBlockIndexForContainer(container);
+        if (resolvedIdx >= 0 && resolvedIdx < blockRanges.length) {
+            return blockRanges[resolvedIdx];
+        }
+
         const targetRef = container.dataset.quranRef;
         if (targetRef && blockRanges.length > 0) {
             const parsedTarget = this.extractVerseReference(targetRef);
@@ -3649,12 +3954,8 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     const pb = this.extractVerseReference(b.ref);
                     return pb && pb.surah === parsedTarget.surah && pb.startVerse === parsedTarget.startVerse;
                 });
-                if (matches.length === 1) return matches[0];
+                if (matches.length > 0) return matches[0];
             }
-        }
-
-        if (containerIndex >= 0 && containerIndex < blockRanges.length) {
-            return blockRanges[containerIndex];
         }
 
         return blockRanges[0] || null;

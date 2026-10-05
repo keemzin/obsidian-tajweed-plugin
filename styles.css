@@ -35,7 +35,6 @@
 
 .quran-verse.quran-verse-active {
     border-left-color: var(--interactive-accent) !important;
-    background: var(--background-modifier-hover) !important;
 }
 
 .quran-text-container {
@@ -1192,6 +1191,20 @@ body:not(.theme-light) .quran-v4-mode .quran-word-v4 {
     background: var(--background-modifier-hover);
 }
 
+.quran-action-btn.quran-bookmark-btn {
+    padding: 2px 6px;
+}
+
+.quran-action-btn.quran-bookmark-btn.quran-bookmarked {
+    color: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+    background: var(--background-modifier-hover);
+}
+
+.quran-action-btn.quran-bookmark-btn.quran-bookmarked svg {
+    fill: currentColor;
+}
+
 .quran-action-btn.quran-top-tafsir-btn {
     height: 28px;
     padding: 0 8px;
@@ -1233,7 +1246,8 @@ body:not(.theme-light) .quran-v4-mode .quran-word-v4 {
     }
 }
 
-.quran-tajweed-container.quran-block-flash {
+.quran-tajweed-container.quran-block-flash,
+.quran-verse.quran-block-flash {
     animation: quran-block-pulse-highlight 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     z-index: 2;
 }
