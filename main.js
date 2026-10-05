@@ -286,7 +286,9 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             showSideIndexWheel: true,
             useRichSurahPicker: true,
             rememberLastPosition: true,
-            starredSurahs: [1, 18, 32, 36, 55, 56, 67, 112, 113, 114]
+            starredSurahs: [1, 18, 32, 36, 55, 56, 67, 112, 113, 114],
+            enableReflectionNotes: true,
+            reflectionFilePath: 'Quran Reflections.md'
         };
 
         // Load saved settings
@@ -2611,6 +2613,11 @@ module.exports = class QuranTajweedPlugin extends Plugin {
                     }
                 }
 
+                if (this.settings.enableReflectionNotes !== false) {
+                    const reflectionBtn = this.createReflectionButton(surah, verse.numberInSurah, verseDiv);
+                    actionsDiv.appendChild(reflectionBtn);
+                }
+
                 const bookmarkBtn = this.createBookmarkButton(container, surah, startVerse, endVerse, verse.numberInSurah, verseDiv);
                 actionsDiv.appendChild(bookmarkBtn);
 
@@ -2814,6 +2821,306 @@ module.exports = class QuranTajweedPlugin extends Plugin {
             if (globalRaw) return JSON.parse(globalRaw);
         } catch (e) {}
         return null;
+    }
+
+    getReflectionFilePath() {
+        let p = (this.settings.reflectionFilePath || 'Quran Reflections.md').trim();
+        if (!p) p = 'Quran Reflections.md';
+        if (!p.endsWith('.md')) p += '.md';
+        return p;
+    }
+
+    async getReflectionFile(createIfMissing = false) {
+        const path = this.getReflectionFilePath();
+        let file = this.app.vault.getAbstractFileByPath(path);
+        if (!file && createIfMissing) {
+            const parts = path.split('/');
+            if (parts.length > 1) {
+                parts.pop();
+                const folderPath = parts.join('/');
+                if (!this.app.vault.getAbstractFileByPath(folderPath)) {
+                    try {
+                        await this.app.vault.createFolder(folderPath);
+                    } catch (e) {}
+                }
+            }
+            const initialContent = '# Quran Reflections\n\n*Personal study notes and reflections on Quranic verses.*\n\n---\n';
+            file = await this.app.vault.create(path, initialContent);
+        }
+        return file;
+    }
+
+    async getReflectionData(surah, ayah) {
+        try {
+            const file = await this.getReflectionFile(false);
+            if (!file) return null;
+            const content = await this.app.vault.read(file);
+            const blockId = `^quran-${surah}-${ayah}`;
+            const headerPrefix = `#### ${surah}:${ayah}`;
+            const lines = content.split('\n');
+            let inside = false;
+            let textLines = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (!inside) {
+                    if (line.trim().startsWith(headerPrefix)) {
+                        inside = true;
+                    }
+                } else {
+                    if (line.trim().startsWith('#### ') || (line.trim() === '---' && textLines.length > 0)) {
+                        break;
+                    }
+                    if (line.trim() !== blockId) {
+                        textLines.push(line);
+                    }
+                }
+            }
+
+            if (!inside) return null;
+            const result = textLines.join('\n').trim();
+            return result ? { text: result, blockId: blockId } : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async saveReflectionData(surah, ayah, newText) {
+        const file = await this.getReflectionFile(true);
+        if (!file) return false;
+        const content = await this.app.vault.read(file);
+        const lines = content.split('\n');
+        const headerPrefix = `#### ${surah}:${ayah}`;
+        const blockId = `^quran-${surah}-${ayah}`;
+
+        let startIndex = -1;
+        let endIndex = -1;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (startIndex === -1) {
+                if (line.trim().startsWith(headerPrefix)) {
+                    startIndex = i;
+                }
+            } else {
+                if (line.trim().startsWith('#### ')) {
+                    endIndex = i;
+                    break;
+                }
+                if (line.trim() === '---') {
+                    endIndex = i + 1;
+                    break;
+                }
+            }
+        }
+        if (startIndex !== -1 && endIndex === -1) {
+            endIndex = lines.length;
+        }
+
+        const trimmed = (newText || '').trim();
+
+        if (!trimmed) {
+            if (startIndex !== -1) {
+                lines.splice(startIndex, endIndex - startIndex);
+                const updated = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+                await this.app.vault.modify(file, updated);
+            }
+            return true;
+        }
+
+        const surahMeta = SURAHS.find(s => s.number === surah);
+        const surahName = surahMeta ? (surahMeta.englishName || surahMeta.name) : `Surah ${surah}`;
+        const newBlockLines = [
+            `#### ${surah}:${ayah} — ${surahName}`,
+            trimmed,
+            blockId,
+            '',
+            '---'
+        ];
+
+        if (startIndex !== -1) {
+            lines.splice(startIndex, endIndex - startIndex, ...newBlockLines);
+        } else {
+            if (lines.length > 0 && lines[lines.length - 1].trim() !== '') {
+                lines.push('');
+            }
+            lines.push(...newBlockLines);
+        }
+
+        const updated = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+        await this.app.vault.modify(file, updated);
+        return true;
+    }
+
+    async openReflectionNote(surah, ayah) {
+        await this.getReflectionFile(true);
+        const path = this.getReflectionFilePath();
+        const linkText = `${path}#^quran-${surah}-${ayah}`;
+        await this.app.workspace.openLinkText(linkText, '', false);
+    }
+
+    createReflectionButton(surah, verseNum, verseDiv) {
+        const btn = document.createElement('button');
+        btn.className = 'quran-action-btn quran-reflection-btn';
+        btn.type = 'button';
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
+        btn.title = 'Add reflection note';
+
+        this.getReflectionData(surah, verseNum).then(data => {
+            if (data && data.text) {
+                btn.classList.add('quran-has-reflection');
+                const preview = data.text.length > 50 ? data.text.substring(0, 47) + '...' : data.text;
+                btn.title = `Reflection: "${preview}" (Click to edit)`;
+            }
+        });
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.showReflectionPopover(btn, surah, verseNum, verseDiv);
+        });
+
+        return btn;
+    }
+
+    async showReflectionPopover(anchorBtn, surah, verseNum, verseDiv) {
+        const existing = document.querySelector('.quran-reflection-popover');
+        if (existing) {
+            existing.remove();
+            if (existing._anchorBtn === anchorBtn) return;
+        }
+
+        const surahMeta = SURAHS.find(s => s.number === surah);
+        const surahName = surahMeta ? (surahMeta.englishName || surahMeta.name) : `Surah ${surah}`;
+        const blockRef = `^quran-${surah}-${verseNum}`;
+        const notePath = this.getReflectionFilePath();
+        const linkAlias = `quran-${surah}-${verseNum}`;
+        const linkRef = `[[${notePath}#${blockRef}|${linkAlias}]]`;
+
+        const data = await this.getReflectionData(surah, verseNum);
+        const initialText = data ? data.text : '';
+
+        const popover = document.createElement('div');
+        popover.className = 'quran-reflection-popover';
+        popover._anchorBtn = anchorBtn;
+
+        popover.innerHTML = `
+            <div class="quran-reflection-header">
+                <div class="quran-reflection-title-group">
+                    <span class="quran-reflection-title">${surahName} ${surah}:${verseNum}</span>
+                    <span class="quran-reflection-badge">Reflection</span>
+                </div>
+                <div class="quran-reflection-header-actions">
+                    <button class="quran-reflection-header-btn quran-reflection-copy-btn" title="Copy link (${linkRef})" type="button">
+                        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    </button>
+                    <button class="quran-reflection-header-btn quran-reflection-open-btn" title="Open note at this block" type="button">
+                        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </button>
+                    <button class="quran-reflection-header-btn quran-reflection-close-btn" title="Close" type="button">&times;</button>
+                </div>
+            </div>
+            <div class="quran-reflection-body">
+                <textarea class="quran-reflection-textarea" placeholder="Write personal reflections, study notes, or benefits for this verse...">${initialText}</textarea>
+            </div>
+            <div class="quran-reflection-footer">
+                <div class="quran-reflection-footer-left">
+                    ${initialText ? '<button class="quran-reflection-delete-btn" type="button">Delete</button>' : ''}
+                </div>
+                <div class="quran-reflection-footer-right">
+                    <button class="quran-reflection-cancel-btn" type="button">Cancel</button>
+                    <button class="quran-reflection-save-btn" type="button">Save</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(popover);
+
+        const rect = anchorBtn.getBoundingClientRect();
+        const popoverWidth = 360;
+        let left = rect.left;
+        if (left + popoverWidth > window.innerWidth - 16) {
+            left = window.innerWidth - popoverWidth - 16;
+        }
+        if (left < 16) left = 16;
+
+        let top = rect.bottom + 6;
+        if (top + 280 > window.innerHeight - 16) {
+            top = Math.max(16, rect.top - 286);
+        }
+        popover.style.left = `${left}px`;
+        popover.style.top = `${top}px`;
+
+        const textarea = popover.querySelector('.quran-reflection-textarea');
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+
+        const copyBtn = popover.querySelector('.quran-reflection-copy-btn');
+        copyBtn.addEventListener('click', async () => {
+            await navigator.clipboard.writeText(linkRef);
+            new Notice(`Copied link: ${linkRef}`);
+        });
+
+        const openBtn = popover.querySelector('.quran-reflection-open-btn');
+        openBtn.addEventListener('click', async () => {
+            const val = textarea.value.trim();
+            if (val !== initialText) {
+                await this.saveReflectionData(surah, verseNum, val);
+            } else if (!data) {
+                await this.saveReflectionData(surah, verseNum, '\n');
+            }
+            popover.remove();
+            await this.openReflectionNote(surah, verseNum);
+        });
+
+        const closeBtn = popover.querySelector('.quran-reflection-close-btn');
+        closeBtn.addEventListener('click', () => popover.remove());
+
+        const cancelBtn = popover.querySelector('.quran-reflection-cancel-btn');
+        cancelBtn.addEventListener('click', () => popover.remove());
+
+        const deleteBtn = popover.querySelector('.quran-reflection-delete-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                await this.saveReflectionData(surah, verseNum, '');
+                anchorBtn.classList.remove('quran-has-reflection');
+                anchorBtn.title = 'Add reflection note';
+                popover.remove();
+                new Notice(`Deleted reflection for ${surah}:${verseNum}`);
+            });
+        }
+
+        const saveBtn = popover.querySelector('.quran-reflection-save-btn');
+        saveBtn.addEventListener('click', async () => {
+            const text = textarea.value.trim();
+            await this.saveReflectionData(surah, verseNum, text);
+            if (text) {
+                anchorBtn.classList.add('quran-has-reflection');
+                const preview = text.length > 50 ? text.substring(0, 47) + '...' : text;
+                anchorBtn.title = `Reflection: "${preview}" (Click to edit)`;
+                new Notice(`Saved reflection for ${surah}:${verseNum}`);
+            } else {
+                anchorBtn.classList.remove('quran-has-reflection');
+                anchorBtn.title = 'Add reflection note';
+            }
+            popover.remove();
+        });
+
+        textarea.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                saveBtn.click();
+            }
+        });
+
+        const outsideClickHandler = (e) => {
+            if (!popover.contains(e.target) && !anchorBtn.contains(e.target)) {
+                popover.remove();
+                document.removeEventListener('pointerdown', outsideClickHandler, true);
+            }
+        };
+        setTimeout(() => {
+            document.addEventListener('pointerdown', outsideClickHandler, true);
+        }, 10);
     }
 
     saveLastPosition(file, block, idx, verse, source = 'manual') {
@@ -4528,6 +4835,32 @@ class QuranTajweedSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                     await this.plugin.rerenderAll();
                 });
+            });
+
+        containerEl.createEl('h3', { text: 'Study & Personal Reflections' });
+
+        new Setting(containerEl)
+            .setName('Enable Reflection Notes')
+            .setDesc('Show reflection note icon on each verse to write, view, and link personal reflections.')
+            .addToggle((toggle) => {
+                toggle.setValue(this.plugin.settings.enableReflectionNotes !== false);
+                toggle.onChange(async (value) => {
+                    this.plugin.settings.enableReflectionNotes = value;
+                    await this.plugin.saveSettings();
+                    await this.plugin.rerenderAll();
+                });
+            });
+
+        new Setting(containerEl)
+            .setName('Reflection File Path')
+            .setDesc('Path to the Markdown file where all personal verse reflections are stored using block references.')
+            .addText((text) => {
+                text.setPlaceholder('Quran Reflections.md')
+                    .setValue(this.plugin.settings.reflectionFilePath || 'Quran Reflections.md')
+                    .onChange(async (value) => {
+                        this.plugin.settings.reflectionFilePath = value.trim() || 'Quran Reflections.md';
+                        await this.plugin.saveSettings();
+                    });
             });
 
         containerEl.createEl('h3', { text: 'Navigation & Sidebar' });

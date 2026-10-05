@@ -1205,6 +1205,204 @@ body:not(.theme-light) .quran-v4-mode .quran-word-v4 {
     fill: currentColor;
 }
 
+.quran-action-btn.quran-reflection-btn {
+    padding: 2px 6px;
+    position: relative;
+}
+
+.quran-action-btn.quran-reflection-btn.quran-has-reflection {
+    color: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+    background: rgba(var(--interactive-accent-rgb, 100, 108, 255), 0.12);
+}
+
+.quran-action-btn.quran-reflection-btn.quran-has-reflection::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--interactive-accent);
+}
+
+.quran-reflection-popover {
+    position: fixed;
+    z-index: 1000;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-direction: column;
+    direction: ltr;
+    text-align: left;
+    font-family: var(--font-interface, sans-serif);
+    overflow: hidden;
+}
+
+.quran-reflection-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.quran-reflection-title-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.quran-reflection-title {
+    font-size: 0.82em;
+    font-weight: 600;
+    color: var(--text-normal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quran-reflection-badge {
+    font-size: 0.65em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.quran-reflection-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.quran-reflection-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.quran-reflection-header-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.quran-reflection-body {
+    padding: 10px 12px;
+}
+
+.quran-reflection-textarea {
+    width: 100%;
+    min-height: 120px;
+    max-height: 280px;
+    resize: vertical;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.85em;
+    font-family: var(--font-text, inherit);
+    line-height: 1.5;
+    color: var(--text-normal);
+    box-sizing: border-box;
+}
+
+.quran-reflection-textarea:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb, 100, 108, 255), 0.2);
+}
+
+.quran-reflection-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--background-secondary);
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.quran-reflection-footer-left {
+    display: flex;
+    align-items: center;
+}
+
+.quran-reflection-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quran-reflection-cancel-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.quran-reflection-cancel-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.quran-reflection-save-btn {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    padding: 3px 12px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+
+.quran-reflection-save-btn:hover {
+    filter: brightness(1.1);
+}
+
+.quran-reflection-delete-btn {
+    background: transparent;
+    color: var(--text-error, #e53935);
+    border: 1px solid var(--background-modifier-border);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.quran-reflection-delete-btn:hover {
+    background: rgba(229, 57, 53, 0.1);
+}
+
 .quran-action-btn.quran-top-tafsir-btn {
     height: 28px;
     padding: 0 8px;

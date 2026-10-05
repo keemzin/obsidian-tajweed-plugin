@@ -45,8 +45,10 @@ obsidian-tajweed-plugin/
 | `deleteQuranBlock()` | Vault API — cleanly removes targeted Quran block from note with confirmation protection |
 | `updateSourceParam()` | Vault API — persists gear toggles directly to the active note without leaving Reading view |
 | `updateSourceRange()` | Vault API — persists surah/verse dropdown changes to the note |
+| `getReflectionData()` / `saveReflectionData()` | Centralized markdown block-reference storage for personal verse reflections with `####` headers and `^quran-s-a` block IDs |
+| `openReflectionNote()` | Opens reflection file and jumps directly to verse block reference in workspace |
 | Cache helpers | `getDiskCache()`, `setDiskCache()` using Obsidian's `Vault.adapter` for persistent storage |
-| `QuranTajweedSettingTab` | Complete settings UI for fonts, layout, tafsir placement, audio, WBW, and V4 mode |
+| `QuranTajweedSettingTab` | Complete settings UI for fonts, layout, tafsir placement, audio, WBW, reflections, and V4 mode |
 
 ### Data Flow
 
